@@ -1,0 +1,7 @@
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR NOT NULL,
+  password CHAR(60) NOT NULL,
+  email CITEXT NOT NULL,
+  verified BOOLEAN NOT NULL DEFAULT 'f'
+)
