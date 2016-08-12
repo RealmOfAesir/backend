@@ -1,45 +1,103 @@
 #![feature(custom_derive, custom_attribute, plugin)]
 #![plugin(diesel_codegen, dotenv_macros)]
 
-#[macro_use]
-extern crate diesel;
-extern crate dotenv;
+extern crate serde_json;
+extern crate websocket;
+extern crate common;
 
-mod database;
-use database::*;
-use database::user::*;
-use self::diesel::prelude::*;
+use std::thread;
+use std::str::from_utf8;
+use websocket::{Server, Message, Sender, Receiver};
+use websocket::result::WebSocketError;
+use websocket::message::Type;
+use websocket::header::WebSocketProtocol;
 
 fn main() {
-    use database::user::users::dsl::*;
+    let server = Server::bind("127.0.0.1:2794").unwrap();
 
-    let connection = establish_connection();
+	for connection in server {
+		// Spawn a new thread for each connection.
+		thread::spawn(move || {
+			let request = connection.unwrap().read_request().unwrap(); // Get the request
 
-    let mut user = create_user(&connection, 1, "oipo", "haha_no", "youbetcha", "true");
+			request.validate().unwrap(); // Validate the request
 
-    match user {
-        Result::Ok(val) => println!("This should not happen!"),
-        Result::Err(err) => println!("Correct! {:?}", err),
-    }
+			let response = request.accept(); // Form a response
 
-    let zone = create_zone(&connection, "Test", "{}").expect("Could not create zone");
-    let location = create_location(&connection, zone.id, 0, 0).expect("Could not create location");
+			let mut client = response.send().unwrap(); // Send the response
 
-    user = create_user(&connection, location.id, "oipo", "haha_no", "youbetcha", "true");
+			let ip = client.get_mut_sender()
+				.get_mut()
+				.peer_addr()
+				.unwrap();
 
-    match user {
-        Result::Ok(val) => println!("Correct!"),
-        Result::Err(err) => println!("This should not happen! {:?}", err),
-    }
+			println!("Connection from {}", ip);
 
-    let results = users.limit(5)
-        .load::<User>(&connection)
-        .expect("Error loading users");
+			let message: Message = Message::text("Hello".to_string());
+			client.send_message(&message).unwrap();
 
-    println!("Displaying {} users", results.len());
-    for post in results {
-        println!("{}", post.name);
-        println!("----------\n");
-        println!("{}", post.email);
-    }
+			let (mut sender, mut receiver) = client.split();
+
+			for message in receiver.incoming_messages() {
+				let message: Message = match message {
+                    Ok(val) => val,
+                    Err(err) => {
+                        match err {
+                            WebSocketError::NoDataAvailable => {},
+                            _ => println!("error: {:?}", err)
+                        }
+                        continue;
+                    }
+                };
+
+				match message.opcode {
+                    Type::Text => {
+                        let payload = from_utf8(&*message.payload).unwrap();
+                        println!("received: {:?}", payload);
+                        let message: common::Message = match common::deserialize_message::<common::Message>(&payload) {
+                            Ok(val) => val,
+                            Err(err) => {
+                                println!("error: {:?}", err);
+                                continue;
+                            }
+                        };
+
+                        match message.msg_type {
+                            common::Type::Login => {
+                                let login: common::LoginV1 = match common::deserialize_message(&message.content) {
+                                    Ok(val) => val,
+                                    Err(err) => {
+                                        println!("error: {:?}", err);
+                                        continue;
+                                    }
+                                };
+                                println!("login received: {} - {}", login.username, login.password);
+                            },
+                            common::Type::Register => {
+                                let register: common::RegisterV1 = match common::deserialize_message(&message.content) {
+                                    Ok(val) => val,
+                                    Err(err) => {
+                                        println!("error: {:?}", err);
+                                        continue;
+                                    }
+                                };
+                                println!("register received: {} - {}", register.username, register.password);
+                            }
+                        }
+                    },
+					Type::Close => {
+						let message = Message::close();
+						sender.send_message(&message).unwrap();
+						println!("Client {} disconnected", ip);
+						return;
+					},
+					Type::Ping => {
+						let message = Message::pong(message.payload);
+						sender.send_message(&message).unwrap();
+					}
+					_ => sender.send_message(&message).unwrap(),
+				}
+			}
+		});
+}
 }
