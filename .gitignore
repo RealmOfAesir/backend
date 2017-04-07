@@ -1,8 +1,12 @@
 .git/
 .env
 CMakeFiles/
+CMakeCache.txt
 cmake_*
 bin/
 Makefile
 build/
 logs/
+*.cbp
+*.cmake
+

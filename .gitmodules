@@ -1,0 +1,6 @@
+[submodule "external/common"]
+	path = external/common
+	url = https://github.com/RealmOfAesir/common.git
+[submodule "external/json"]
+	path = external/json
+	url = https://github.com/nlohmann/json.git
