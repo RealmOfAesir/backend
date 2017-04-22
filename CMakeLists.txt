@@ -14,8 +14,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O2 -Wall -Wno-long-long -Wfloat-equa
 include_directories("${PROJECT_SOURCE_DIR}")
 
 file(GLOB_RECURSE PROJECT_SOURCES ${PROJECT_SOURCE_DIR}/src/*.cpp)
-file(GLOB EASYLOGGING_SOURCE ${CMAKE_SOURCE_DIR}/external/easyloggingpp/src/easylogging++.cc)
-add_executable(RealmOfAesirBackend ${PROJECT_SOURCES} ${EASYLOGGING_SOURCE})
+file(GLOB EASYLOGGING_SOURCE ${CMAKE_SOURCE_DIR}/external/common/external/easyloggingpp/src/easylogging++.cc)
+add_executable(RealmOfAesirBackend ${EASYLOGGING_SOURCE} ${PROJECT_SOURCES} )
 
 include_directories("${CMAKE_SOURCE_DIR}/external/common/src")
 include_directories("${CMAKE_SOURCE_DIR}/external/common/external/librdkafka/src-cpp")
