@@ -18,27 +18,31 @@
 
 #pragma once
 
-#include <unordered_map>
-#include <vector>
-#include <external/common/src/messages/message.h>
+#include <string>
+#include <memory>
+#include <pqxx/pqxx>
 
 namespace roa {
+    class idatabase_transaction;
+    class database_pool;
 
-    template <bool UseJson>
-    class imessage_handler {
+    class idatabase_connection {
     public:
-        virtual ~imessage_handler() = default;
-        virtual void handle_message(message<UseJson> msg) = 0;
+        virtual ~idatabase_connection() = default;
+
+        virtual std::unique_ptr<idatabase_transaction> create_transaction() = 0;
     };
 
-    template <bool UseJson>
-    class message_dispatcher {
+    class database_connection : public idatabase_connection {
     public:
-        message_dispatcher() : handlers() {}
+        database_connection(database_pool* database_pool, std::tuple<uint32_t, std::shared_ptr<pqxx::connection>> connection) noexcept;
+        ~database_connection();
 
-        void register_handler(uint32_t message_type, imessage_handler<UseJson> handler);
-        void trigger_handle(decltype(message<UseJson>::template deserialize<UseJson>) message);
+        std::unique_ptr<idatabase_transaction> create_transaction() override;
+
     private:
-        std::unordered_map<uint32_t, std::vector<imessage_handler<UseJson>>> handlers;
+        // Just hold a pointer, do not delete
+        database_pool* _database_pool;
+        std::tuple<uint32_t, std::shared_ptr<pqxx::connection>> _connection;
     };
 }

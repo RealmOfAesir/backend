@@ -16,21 +16,30 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "message_handler.h"
-#include <tuple>
+#include <external/common/external/easyloggingpp/src/easylogging++.h>
+#include "database_transaction.h"
 
 using namespace std;
 using namespace roa;
+using namespace pqxx;
 
-template <bool UseJson>
-void message_dispatcher<UseJson>::register_handler(uint32_t message_type, imessage_handler<UseJson> handler) {
-    handlers[message_type].push_back(handler);
+database_transaction::database_transaction(std::shared_ptr<connection> connection) noexcept
+        : _connection(connection), _transaction(*_connection) {
+
 }
 
-template <bool UseJson>
-void message_dispatcher<UseJson>::trigger_handle(decltype(message<UseJson>::template deserialize<UseJson>) msg) {
-    auto message_handlers = handlers[get<0>(msg)];
-    for(auto msg_handler : message_handlers) {
-        //msg_handler->
-    }
+database_transaction::~database_transaction() {
+}
+
+pqxx::result database_transaction::execute(string query) {
+    LOG(DEBUG) << "executing query \"" << query << "\"";
+    return _transaction.exec(query);
+}
+
+string database_transaction::escape(string element) {
+    return _transaction.esc(element);
+}
+
+void database_transaction::commit() {
+    _transaction.commit();
 }

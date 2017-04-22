@@ -7,3 +7,9 @@
 [submodule "external/uWebSockets"]
 	path = external/uWebSockets
 	url = https://github.com/uWebSockets/uWebSockets.git
+[submodule "external/libpqxx"]
+	path = external/libpqxx
+	url = https://github.com/jtv/libpqxx.git
+[submodule "external/libsodium"]
+	path = external/libsodium
+	url = https://github.com/jedisct1/libsodium.git
