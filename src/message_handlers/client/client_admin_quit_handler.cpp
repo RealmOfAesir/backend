@@ -17,21 +17,32 @@
 */
 
 #include "client_admin_quit_handler.h"
-#include <external/common/src/admin_messages/quit_message.h>
+#include <macros.h>
+#include <admin_messages/quit_message.h>
 #include <easylogging++.h>
 
 using namespace std;
 using namespace roa;
 
-client_admin_quit_handler::client_admin_quit_handler(std::shared_ptr<ikafka_producer<false>> producer) : _producer(producer) {
+client_admin_quit_handler::client_admin_quit_handler(Config config, std::shared_ptr<ikafka_producer<false>> producer)
+        : _config(config), _producer(producer) {
 
 }
 
-void client_admin_quit_handler::handle_message(const unique_ptr<const message<false>> &msg) {
-    // TODO check if user is admin
+void client_admin_quit_handler::handle_message(const unique_ptr<const message<false>> &msg, STD_OPTIONAL<std::reference_wrapper<user_connection>> connection) {
+    if(!connection) {
+        LOG(ERROR) << NAMEOF(client_admin_quit_handler::handle_message) << " received empty connection";
+        return;
+    }
+
+    if(connection->get().admin_status != 1) {
+        LOG(WARNING) << NAMEOF(client_admin_quit_handler::handle_message) << " received unauthorized quit message";
+        return;
+    }
+
     if (auto quit_msg = dynamic_cast<quit_message<false> const *>(msg.get())) {
-        LOG(WARNING) << "Got quit message from wss, sending quit message to kafka";
-        this->_producer->enqueue_message(quit_msg);
+        LOG(WARNING) << "Got authorized quit message from wss, sending quit message to kafka";
+        this->_producer->enqueue_message("broadcast", quit_msg);
     }
 }
 

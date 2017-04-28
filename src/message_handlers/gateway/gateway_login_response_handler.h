@@ -18,21 +18,22 @@
 
 #pragma once
 
-#include <external/common/src/messages/message_handler.h>
-
-#include <atomic>
+#include "../message_dispatcher.h"
+#include "src/user_connection.h"
+#include "../../config.h"
 
 namespace roa {
-    class server_quit_handler : public imessage_handler<false> {
+    class gateway_login_response_handler : public imessage_handler<false> {
     public:
-        //server_quit_handler();
-        void handle_message(std::unique_ptr<message<false> const> const &msg) override;
+        gateway_login_response_handler(Config config,
+                                       std::unordered_map<std::string, user_connection> &connections);
+        ~gateway_login_response_handler() override = default;
 
-        server_quit_handler(std::atomic<bool> *quit);
-        ~server_quit_handler() override = default;
+        void handle_message(std::unique_ptr<message<false> const> const &msg, STD_OPTIONAL<std::reference_wrapper<user_connection>> connection) override;
 
-        static constexpr uint32_t message_id = ADMIN_QUIT_MESSAGE_TYPE;
+        static constexpr uint32_t message_id = LOGIN_RESPONSE_MESSAGE_TYPE;
     private:
-        std::atomic<bool> *_quit;
+        Config _config;
+        std::unordered_map<std::string, user_connection> &_connections;
     };
 }

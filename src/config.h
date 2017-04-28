@@ -16,30 +16,14 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <easylogging++.h>
-#include "database_transaction.h"
+#pragma once
 
-using namespace std;
-using namespace roa;
-using namespace pqxx;
+#include <string>
 
-database_transaction::database_transaction(std::shared_ptr<connection> connection) noexcept
-        : _connection(connection), _transaction(*_connection) {
-
-}
-
-database_transaction::~database_transaction() {
-}
-
-pqxx::result database_transaction::execute(string query) {
-    LOG(DEBUG) << "executing query \"" << query << "\"";
-    return _transaction.exec(query);
-}
-
-string database_transaction::escape(string element) {
-    return _transaction.esc(element);
-}
-
-void database_transaction::commit() {
-    _transaction.commit();
-}
+struct Config {
+    std::string broker_list;
+    std::string group_id;
+    uint32_t server_id;
+    std::string connection_string;
+    std::string debug_level;
+};

@@ -16,30 +16,16 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <easylogging++.h>
-#include "database_transaction.h"
+#include "backend_quit_handler.h"
 
-using namespace std;
 using namespace roa;
-using namespace pqxx;
 
-database_transaction::database_transaction(std::shared_ptr<connection> connection) noexcept
-        : _connection(connection), _transaction(*_connection) {
+backend_quit_handler::backend_quit_handler(std::atomic<bool> *quit) : _quit(quit) {
 
 }
 
-database_transaction::~database_transaction() {
+void backend_quit_handler::handle_message(std::unique_ptr<message<false> const> const &msg, STD_OPTIONAL<std::reference_wrapper<user_connection>> connection) {
+    *this->_quit = true;
 }
 
-pqxx::result database_transaction::execute(string query) {
-    LOG(DEBUG) << "executing query \"" << query << "\"";
-    return _transaction.exec(query);
-}
-
-string database_transaction::escape(string element) {
-    return _transaction.esc(element);
-}
-
-void database_transaction::commit() {
-    _transaction.commit();
-}
+uint32_t constexpr backend_quit_handler::message_id;

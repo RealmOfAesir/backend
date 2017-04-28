@@ -27,8 +27,23 @@ namespace roa {
     public:
         virtual ~idatabase_transaction() = default;
 
+        /**
+         * Execute sql query and return result
+         * @param query
+         * @return result
+         */
         virtual pqxx::result execute(std::string query) = 0;
+
+        /**
+         * prevent sql injection
+         * @param element
+         * @return escaped element
+         */
         virtual std::string escape(std::string element) = 0;
+
+        /**
+         * In the case of update or insertions, commit the transaction to go through with the change.
+         */
         virtual void commit() = 0;
     };
 

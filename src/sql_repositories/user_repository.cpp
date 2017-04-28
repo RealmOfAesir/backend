@@ -19,12 +19,14 @@
 #include "user_repository.h"
 
 #include <pqxx/pqxx>
-#include <external/common/external/easyloggingpp/src/easylogging++.h>
+#include <easylogging++.h>
 
 #include "database_connection.h"
 #include "database_transaction.h"
+#include "sql_exceptions.h"
 
 using namespace std;
+using namespace experimental;
 using namespace roa;
 using namespace pqxx;
 
@@ -36,17 +38,26 @@ user_repository::~user_repository() {
 
 }
 
-void user_repository::insert_user(user usr) {
+bool user_repository::insert_user_if_not_exists(user& usr) {
     auto connection = _database_pool.get_connection();
     auto txn = connection->create_transaction();
 
-    //for(int i = 0; i < 10; i++) {
-        auto result = txn->execute(
-                "INSERT INTO users (username, password, email, login_attempts) VALUES ('" + txn->escape(usr.username) +
-                "', '" + txn->escape(usr.password) + "', '" + txn->escape(usr.email) + "', 0)");
-    //}
+    auto result = txn->execute(
+            "INSERT INTO users (username, password, email, login_attempts) VALUES ('" + txn->escape(usr.username) +
+            "', '" + txn->escape(usr.password) + "', '" + txn->escape(usr.email) + "', 0) ON CONFLICT DO NOTHING RETURNING id");
+
+    if(result.size() == 0) {
+        //already exists
+        return false;
+    }
+
+    usr.id = result[0][0].as<uint64_t>();
+
+    LOG(DEBUG) << "insert_user contains " << result.size() << " entries";
 
     txn->commit();
+
+    return true;
 }
 
 void user_repository::update_user(user usr) {
@@ -56,15 +67,41 @@ void user_repository::update_user(user usr) {
     auto result = txn->execute("UPDATE users SET username = '" + txn->escape(usr.username) +
              "', password = '" + txn->escape(usr.password) + "', email = '" + txn->escape(usr.email) + "' WHERE id = " + to_string(usr.id));
 
-    LOG(INFO) << "update_user contains " << result.size() << " entries";
+    LOG(DEBUG) << "update_user contains " << result.size() << " entries";
 
     txn->commit();
 }
 
-user user_repository::get_user(string username) {
-    return user();
+STD_OPTIONAL<user> user_repository::get_user(string username) {
+    auto connection = _database_pool.get_connection();
+    auto txn = connection->create_transaction();
+
+    auto result = txn->execute("SELECT * FROM users WHERE username = '" + txn->escape(username) + "'");
+
+    LOG(DEBUG) << "get_user username contains " << result.size() << " entries";
+
+    if(result.size() == 0) {
+        return {};
+    }
+
+    return make_optional<user>({result[0]["id"].as<uint64_t>(), result[0]["username"].as<string>(),
+                result[0]["password"].as<string>(), result[0]["email"].as<string>(),
+                result[0]["login_attempts"].as<int32_t>(), result[0]["admin_status"].as<int32_t>()});
 }
 
-user user_repository::get_user(uint64_t id) {
-    return user();
+STD_OPTIONAL<user> user_repository::get_user(uint64_t id) {
+    auto connection = _database_pool.get_connection();
+    auto txn = connection->create_transaction();
+
+    auto result = txn->execute("SELECT * FROM users WHERE id = " + to_string(id));
+
+    LOG(DEBUG) << "get_user id contains " << result.size() << " entries";
+
+    if(result.size() == 0) {
+        return {};
+    }
+
+    return make_optional<user>({result[0]["id"].as<uint64_t>(), result[0]["username"].as<string>(),
+                result[0]["password"].as<string>(), result[0]["email"].as<string>(),
+                result[0]["login_attempts"].as<int32_t>(), result[0]["admin_status"].as<int32_t>()});
 }

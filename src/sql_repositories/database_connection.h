@@ -30,12 +30,20 @@ namespace roa {
     public:
         virtual ~idatabase_connection() = default;
 
+        /**
+         * Creates a transaction
+         * @return transaction object
+         */
         virtual std::unique_ptr<idatabase_transaction> create_transaction() = 0;
     };
 
     class database_connection : public idatabase_connection {
     public:
         database_connection(database_pool* database_pool, std::tuple<uint32_t, std::shared_ptr<pqxx::connection>> connection) noexcept;
+
+        /**
+         * Releases the connection upon destruction
+         */
         ~database_connection();
 
         std::unique_ptr<idatabase_transaction> create_transaction() override;

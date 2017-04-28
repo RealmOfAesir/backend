@@ -16,30 +16,30 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <easylogging++.h>
-#include "database_transaction.h"
+#pragma once
 
-using namespace std;
-using namespace roa;
-using namespace pqxx;
+#include <uWS.h>
+#include <string>
+#include <atomic>
 
-database_transaction::database_transaction(std::shared_ptr<connection> connection) noexcept
-        : _connection(connection), _transaction(*_connection) {
+namespace roa {
+    enum user_connection_state {
+        UNKNOWN,
+        REGISTERING,
+        LOGGED_IN
+    };
 
-}
+    struct user_connection {
+        user_connection_state state;
+        int8_t admin_status;
+        uWS::WebSocket<uWS::SERVER> *ws;
+        int64_t id;
+        std::string username;
+        static std::atomic<int64_t> idCounter;
 
-database_transaction::~database_transaction() {
-}
+        explicit user_connection(uWS::WebSocket<uWS::SERVER> *ws);
+        user_connection(user_connection const &conn);
 
-pqxx::result database_transaction::execute(string query) {
-    LOG(DEBUG) << "executing query \"" << query << "\"";
-    return _transaction.exec(query);
-}
-
-string database_transaction::escape(string element) {
-    return _transaction.esc(element);
-}
-
-void database_transaction::commit() {
-    _transaction.commit();
+        static std::string AddressToString(uS::Socket::Address &&a);
+    };
 }

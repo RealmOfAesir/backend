@@ -37,7 +37,8 @@ CREATE TABLE users (
     password CHARACTER(60) NOT NULL,
     email citext NOT NULL,
     login_attempts SMALLINT NOT NULL DEFAULT 0,
-    verification_code text DEFAULT NULL
+    verification_code text DEFAULT NULL,
+    admin SMALLINT NOT NULL DEFAULT 0
 );
 
 CREATE TABLE players (
@@ -75,6 +76,14 @@ CREATE TABLE licenses (
     license text NOT NULL
 );
 
+CREATE TABLE banned_users (
+    id BIGSERIAL PRIMARY KEY,
+    ip text NULL,
+    user_id BIGINT NOT NULL
+);
+
+ALTER TABLE users ADD CONSTRAINT "users_username_unique" UNIQUE (username);
+
 ALTER TABLE locations ADD CONSTRAINT "locations_map_id_fkey" FOREIGN KEY (zone_id) REFERENCES zones(id);
 ALTER TABLE players ADD CONSTRAINT "players_base_stats_id_fkey" FOREIGN KEY (base_stats_id) REFERENCES base_stats(id);
 ALTER TABLE players ADD CONSTRAINT "players_stats_id_fkey" FOREIGN KEY (stats_id) REFERENCES stats(id);
@@ -84,4 +93,4 @@ ALTER TABLE items ADD CONSTRAINT "items_stats_id_fkey" FOREIGN KEY (stats_id) RE
 ALTER TABLE items ADD CONSTRAINT "items_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE monsters ADD CONSTRAINT "monsters_location_id_fkey" FOREIGN KEY (location_id) REFERENCES locations(id);
 ALTER TABLE monsters ADD CONSTRAINT "monsters_stats_id_fkey" FOREIGN KEY (stats_id) REFERENCES stats(id);
-
+ALTER TABLE banned_users ADD CONSTRAINT "banned_users_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id);

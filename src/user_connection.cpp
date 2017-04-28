@@ -16,30 +16,21 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <easylogging++.h>
-#include "database_transaction.h"
+#include "user_connection.h"
 
 using namespace std;
 using namespace roa;
-using namespace pqxx;
 
-database_transaction::database_transaction(std::shared_ptr<connection> connection) noexcept
-        : _connection(connection), _transaction(*_connection) {
+atomic<int64_t> user_connection::idCounter;
+
+user_connection::user_connection(uWS::WebSocket<uWS::SERVER> *ws)
+        : state(UNKNOWN), ws(ws),id(idCounter.fetch_add(1, std::memory_order_relaxed)), username() {
+}
+
+user_connection::user_connection(user_connection const &conn) : state(conn.state), ws(conn.ws), id(conn.id), username(conn.username) {
 
 }
 
-database_transaction::~database_transaction() {
-}
-
-pqxx::result database_transaction::execute(string query) {
-    LOG(DEBUG) << "executing query \"" << query << "\"";
-    return _transaction.exec(query);
-}
-
-string database_transaction::escape(string element) {
-    return _transaction.esc(element);
-}
-
-void database_transaction::commit() {
-    _transaction.commit();
+std::string user_connection::AddressToString(uS::Socket::Address &&a) {
+    return std::string(a.address + std::to_string(a.port));
 }

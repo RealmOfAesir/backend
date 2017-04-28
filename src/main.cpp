@@ -31,55 +31,39 @@
 #include <thread>
 #include <unordered_map>
 #include <atomic>
-#include <shared_mutex>
-#include <external/common/src/exceptions.h>
-#include <src/message_handlers/server/server_quit_handler.h>
-#include <external/common/src/roa_di.h>
-#include <src/message_handlers/client/client_admin_quit_handler.h>
-#include <src/sql_repositories/user_repository.h>
-#include <src/sql_repositories/database_transaction.h>
+#include <mutex>
+#include <exceptions.h>
+#include "src/message_handlers/backend/backend_quit_handler.h"
+#include <roa_di.h>
+#include <macros.h>
+#include "src/message_handlers/gateway/gateway_login_response_handler.h"
+#include "src/message_handlers/gateway/gateway_register_response_handler.h"
+#include "src/message_handlers/backend/backend_register_handler.h"
+#include "src/message_handlers/backend/backend_login_handler.h"
+#include "message_handlers/client/client_admin_quit_handler.h"
+#include "message_handlers/client/client_login_handler.h"
+#include "message_handlers/client/client_register_handler.h"
+#include "sql_repositories/user_repository.h"
+#include "sql_repositories/database_transaction.h"
+#include "user_connection.h"
+#include "config.h"
 
 using namespace std;
 using namespace roa;
 using namespace pqxx;
 
+#ifdef EXPERIMENTAL_OPTIONAL
+using namespace experimental;
+#endif
+
 using json = nlohmann::json;
+
 
 INITIALIZE_EASYLOGGINGPP
 
 atomic<bool> quit{false};
 atomic<bool> uwsQuit{false};
-shared_timed_mutex connectionMutex;
-
-string AddressToString(uS::Socket::Address &&a) {
-    return string(a.address + to_string(a.port));
-}
-
-enum ConnectionState {
-    UNKNOWN,
-    LOGGED_IN
-};
-
-struct Connection {
-    ConnectionState state;
-    uWS::WebSocket<uWS::SERVER> *ws;
-    int64_t id;
-    static atomic<int64_t> idCounter;
-
-    explicit Connection(uWS::WebSocket<uWS::SERVER> *ws) {
-        this->state = UNKNOWN;
-        this->ws = ws;
-        this->id = idCounter.fetch_add(1, memory_order_relaxed);
-    }
-};
-
-struct Config {
-    string broker_list;
-    string group_id;
-    string connection_string;
-};
-
-atomic<int64_t> Connection::idCounter;
+mutex connectionMutex;
 
 void on_sigint(int sig) {
     quit = true;
@@ -90,11 +74,28 @@ void init_extras() noexcept {
     signal(SIGINT, on_sigint);
 }
 
-void init_logger() noexcept {
+void init_logger(Config const config) noexcept {
     el::Configurations defaultConf;
     defaultConf.setGlobally(el::ConfigurationType::Format, "%datetime %level: %msg");
-    defaultConf.set(el::Level::Debug, el::ConfigurationType::Enabled, "false");
+    if(!config.debug_level.empty()) {
+        if(config.debug_level == "error") {
+            defaultConf.set(el::Level::Warning, el::ConfigurationType::Enabled, "false");
+            defaultConf.set(el::Level::Info, el::ConfigurationType::Enabled, "false");
+            defaultConf.set(el::Level::Debug, el::ConfigurationType::Enabled, "false");
+            defaultConf.set(el::Level::Trace, el::ConfigurationType::Enabled, "false");
+        } else if(config.debug_level == "warning") {
+            defaultConf.set(el::Level::Info, el::ConfigurationType::Enabled, "false");
+            defaultConf.set(el::Level::Debug, el::ConfigurationType::Enabled, "false");
+            defaultConf.set(el::Level::Trace, el::ConfigurationType::Enabled, "false");
+        } else if(config.debug_level == "info") {
+            defaultConf.set(el::Level::Debug, el::ConfigurationType::Enabled, "false");
+            defaultConf.set(el::Level::Trace, el::ConfigurationType::Enabled, "false");
+        } else if(config.debug_level == "debug") {
+            defaultConf.set(el::Level::Trace, el::ConfigurationType::Enabled, "false");
+        }
+    }
     el::Loggers::reconfigureAllLoggers(defaultConf);
+    LOG(INFO) << "debug level: " << config.debug_level;
 }
 
 
@@ -132,78 +133,163 @@ Config parse_env_file() {
     }
 
     try {
+        config.server_id = env_json["SERVER_ID"];
+    } catch (const std::exception& e) {
+        LOG(ERROR) << "[main] SERVER_ID missing in .env file.";
+        exit(1);
+    }
+
+    if(config.server_id == 0) {
+        LOG(ERROR) << "[main] SERVER_ID has to be greater than 0";
+        exit(1);
+    }
+
+    try {
         config.connection_string = env_json["CONNECTION_STRING"];
     } catch (const std::exception& e) {
         LOG(ERROR) << "[main] CONNECTION_STRING missing in .env file.";
         exit(1);
     }
 
+    try {
+        config.debug_level = env_json["DEBUG_LEVEL"];
+    } catch (const std::exception& e) {
+        LOG(ERROR) << "[main] DEBUG_LEVEL missing in .env file.";
+        exit(1);
+    }
+
     return config;
 }
 
-unique_ptr<thread> create_uws_thread(uWS::Hub &h, shared_ptr<kafka_producer<false>> producer, unordered_map<string, Connection> &connections) {
-    return make_unique<thread>([&h, &producer, &connections]{
+unique_ptr<thread> create_backend_thread(Config config,
+                                         iuser_repository& user_repository,
+                                         shared_ptr<ikafka_consumer<false>> backend_consumer,
+                                         shared_ptr<ikafka_producer<false>> producer) {
 
-        message_dispatcher<false> client_msg_dispatcher;
+    if(!backend_consumer || !producer) {
+        LOG(ERROR) << "[main:backend] one of the arguments are null";
+        throw runtime_error("[main:backend] one of the arguments are null");
+    }
 
-        client_msg_dispatcher.register_handler<client_admin_quit_handler>(producer);
+    return make_unique<thread>([=, &user_repository] {
+        try {
+            message_dispatcher<false> backend_server_msg_dispatcher;
 
-        h.onMessage([&](uWS::WebSocket<uWS::SERVER> *ws, char *recv_msg, size_t length, uWS::OpCode opCode) {
-            LOG(WARNING) << "Got message from wss";
-            if(opCode == uWS::OpCode::TEXT) {
-                LOG(WARNING) << "Got message from wss";
-                string str(recv_msg, length);
-                LOG(WARNING) << str;
-                auto msg = message<true>::deserialize<false>(str);
-                if(get<1>(msg)) {
-                    client_msg_dispatcher.trigger_handler(msg);
+            backend_server_msg_dispatcher.register_handler<backend_quit_handler>(&quit);
+            backend_server_msg_dispatcher.register_handler<backend_register_handler, Config, iuser_repository&, shared_ptr<ikafka_producer<false>>>(config, user_repository, producer);
+            backend_server_msg_dispatcher.register_handler<backend_login_handler, Config, iuser_repository&, shared_ptr<ikafka_producer<false>>>(config, user_repository, producer);
+
+            LOG(INFO) << "[main:backend] starting create_backend_thread";
+
+            while(!quit) {
+                try {
+                    auto msg = backend_consumer->try_get_message(100);
+                    if(get<1>(msg)) {
+                        LOG(INFO) << "[main:backend] Got backend message from kafka";
+                        backend_server_msg_dispatcher.trigger_handler(msg, {});
+                    }
+                } catch (serialization_exception &e) {
+                    LOG(ERROR) << "[main:backend] received exception " << e.what() << endl;
                 }
-            } else {
-                ws->send(recv_msg, length, opCode);
             }
-        });
+        } catch (const runtime_error& e) {
+            LOG(ERROR) << "[main:backend] error: " << typeid(e).name() << "-" << e.what();
+        }
+    });
+}
 
-        h.onConnection([&connections](uWS::WebSocket<uWS::SERVER> *ws, uWS::HttpRequest request) {
-            LOG(WARNING) << "Got a connection";
-            string key = AddressToString(ws->getAddress());
-            unique_lock<shared_timed_mutex> lock(connectionMutex);
-            if(connections.find(key) != connections.end()) {
-                LOG(WARNING) << "Connection already present, closing this one";
-                ws->terminate();
+unique_ptr<thread> create_uws_thread(Config config, uWS::Hub &h, shared_ptr<ikafka_producer<false>> producer, unordered_map<string, user_connection> &connections) {
+    if(!producer) {
+        LOG(ERROR) << "[main:backend] one of the arguments are null";
+        throw runtime_error("[main:backend] one of the arguments are null");
+    }
+
+    return make_unique<thread>([=, &h, &connections]{
+        try {
+            message_dispatcher<false> client_msg_dispatcher;
+
+            client_msg_dispatcher.register_handler<client_admin_quit_handler>(config, producer);
+            client_msg_dispatcher.register_handler<client_login_handler>(config, producer, connections);
+            client_msg_dispatcher.register_handler<client_register_handler>(config, producer, connections);
+
+            h.onMessage([&](uWS::WebSocket<uWS::SERVER> *ws, char *recv_msg, size_t length, uWS::OpCode opCode) {
+                LOG(DEBUG) << "[main:uws] Got message from wss";
+                if(opCode == uWS::OpCode::TEXT) {
+                    LOG(INFO) << "[main:uws] Got message from wss";
+                    string str(recv_msg, length);
+                    LOG(DEBUG) << str;
+                    unique_lock<mutex> lock(connectionMutex);
+
+                    string key = user_connection::AddressToString(ws->getAddress());
+                    auto connection = connections.find(key);
+
+                    if(unlikely(connection == end(connections))) {
+                        LOG(ERROR) << "[main:uws] got message from " << key << " without connection";
+                        ws->terminate();
+                        return;
+                    }
+
+                    try {
+                        auto msg = message<true>::deserialize<false>(str);
+                        if (get<1>(msg)) {
+                            client_msg_dispatcher.trigger_handler(msg, make_optional(ref(connection->second)));
+                        }
+                    } catch(const std::exception& e) {
+                        LOG(ERROR) << "[main:uws] exception when deserializing message, disconnecting " << connection->second.state
+                                   << ":" << connection->second.username << ":exception: " << typeid(e).name() << "-" << e.what();
+
+                        connections.erase(key);
+                        ws->terminate();
+                    }
+                } else {
+                    ws->send(recv_msg, length, opCode);
+                }
+            });
+
+            h.onConnection([&connections](uWS::WebSocket<uWS::SERVER> *ws, uWS::HttpRequest request) {
+                LOG(WARNING) << "[main:uws] Got a connection";
+                string key = user_connection::AddressToString(ws->getAddress());
+                unique_lock<mutex> lock(connectionMutex);
+                if(connections.find(key) != end(connections)) {
+                    LOG(WARNING) << "[main:uws] Connection already present, closing this one";
+                    ws->terminate();
+                    return;
+                }
+                connections.insert(make_pair(key, user_connection(ws)));
+            });
+
+            h.onDisconnection([&connections](uWS::WebSocket<uWS::SERVER> *ws, int code, char *message, size_t length) {
+
+                string key = user_connection::AddressToString(ws->getAddress());
+                unique_lock<mutex> lock(connectionMutex);
+                connections.erase(key);
+
+                LOG(WARNING) << "[main:uws] Got a disconnect, " << connections.size() << " connections remaining";
+            });
+
+            h.onError([](int type) {
+                LOG(WARNING) << "[main:uws] Got error:" << type;
+            });
+
+            //auto context = uS::TLS::createContext("cert.pem", "key.pem", "test");
+            //h.getDefaultGroup<uWS::SERVER>().addAsync();
+            if(!h.listen(3000/*, nullptr, 0, group.get()*/)) {
+                LOG(ERROR) << "[main:uws] h.listen failed";
                 return;
             }
-            connections.insert(make_pair(key, Connection(ws)));
-        });
 
-        h.onDisconnection([&connections](uWS::WebSocket<uWS::SERVER> *ws, int code, char *message, size_t length) {
+            LOG(INFO) << "[main:uws] starting create_uws_thread";
 
-            string key = AddressToString(ws->getAddress());
-            unique_lock<shared_timed_mutex> lock(connectionMutex);
-            connections.erase(key);
+            h.run();
 
-            LOG(WARNING) << "Got a disconnect, " << connections.size() << " connections remaining";
-        });
-
-        h.onError([](int type) {
-            LOG(WARNING) << "Got error:" << type;
-        });
-
-        //auto context = uS::TLS::createContext("cert.pem", "key.pem", "test");
-        //h.getDefaultGroup<uWS::SERVER>().addAsync();
-        if(!h.listen(3000/*, nullptr, 0, group.get()*/)) {
-            LOG(ERROR) << "h.listen failed";
-            return;
+            uwsQuit = true;
+        } catch (const runtime_error& e) {
+            LOG(ERROR) << "[main:uws] error: " << typeid(e).name() << "-" << e.what();
         }
-        h.run();
-
-        uwsQuit = true;
     });
 }
 
 int main() {
-    init_logger();
-    init_extras();
-
     Config config;
     try {
         config = parse_env_file();
@@ -211,6 +297,9 @@ int main() {
         LOG(ERROR) << "[main] .env file is malformed json.";
         exit(1);
     }
+
+    init_logger(config);
+    init_extras();
 
     database_pool db_pool;
     db_pool.create_connections(config.connection_string);
@@ -220,79 +309,90 @@ int main() {
         boost::di::bind<idatabase_connection>.to<idatabase_connection>(),
         boost::di::bind<idatabase_pool>.to(db_pool),
         boost::di::bind<iuser_repository>.to<user_repository>());
-    //auto injector = boost::di::make_injector(common_injector, backend_injector);
 
-    user_repository repo = backend_injector.create<user_repository>();
-    auto next_print = (chrono::system_clock::now() += 2000ms);
-    uint32_t insert_count = 0;
-    uint32_t id = 0;
-    while(!quit) {
-        repo.insert_user({id, "john doe"s, "pass"s, "email"s});
-
-        insert_count++;
-        id++;
-
-        if(chrono::system_clock::now() >= next_print) {
-            LOG(INFO) << insert_count << " inserts";
-            insert_count = 0;
-            next_print = (chrono::system_clock::now() += 2000ms);
-        }
-    }
-
-    return 0;
-
-
-    auto producer = common_injector.create<shared_ptr<kafka_producer<false>>>();
-    auto consumer = common_injector.create<unique_ptr<kafka_consumer<false>>>();
-    consumer->start(config.broker_list, config.group_id, std::vector<std::string>{"test_topic"});
-    producer->start(config.broker_list, "test_topic");
-    unordered_map<string, Connection> connections;
+    auto producer = common_injector.create<shared_ptr<ikafka_producer<false>>>();
+    auto gateway_consumer = common_injector.create<unique_ptr<ikafka_consumer<false>>>();
+    auto backend_consumer = common_injector.create<shared_ptr<ikafka_consumer<false>>>();
+    auto user_repo = backend_injector.create<user_repository>();
+    gateway_consumer->start(config.broker_list, config.group_id, std::vector<std::string>{"server-" + to_string(config.server_id)});
+    backend_consumer->start(config.broker_list, config.group_id, std::vector<std::string>{"user_access_control_messages", "broadcast"});
+    producer->start(config.broker_list);
+    unordered_map<string, user_connection> connections;
 
     uWS::Hub h;
 
-    auto uws_thread = create_uws_thread(h, producer, connections);
-    message_dispatcher<false> server_msg_dispatcher;
+    try {
+        auto uws_thread = create_uws_thread(config, h, producer, connections);
+        auto backend_thread = create_backend_thread(config, user_repo, backend_consumer, producer);
+        message_dispatcher<false> server_gateway_msg_dispatcher;
 
-    server_msg_dispatcher.register_handler<server_quit_handler, atomic<bool>*>(&quit);
+        server_gateway_msg_dispatcher.register_handler<backend_quit_handler>(&quit);
+        server_gateway_msg_dispatcher.register_handler<gateway_login_response_handler>(config, connections);
+        server_gateway_msg_dispatcher.register_handler<gateway_register_response_handler>(config, connections);
 
-    while(!quit) {
-        try {
-            producer->poll(10);
-            auto msg = consumer->try_get_message(10);
-            if(get<1>(msg)) {
-                LOG(WARNING) << "Got message from kafka";
+        LOG(INFO) << "[main] starting main thread";
 
-                server_msg_dispatcher.trigger_handler(msg);
+        while (!quit) {
+            try {
+                producer->poll(10);
+                auto msg = gateway_consumer->try_get_message(10);
+                if (get<1>(msg)) {
+                    unique_lock<mutex> lock(connectionMutex);
+                    LOG(INFO) << "[main] Got message from kafka";
+
+                    auto id = get<1>(msg)->sender.client_id;
+                    auto connection = find_if(begin(connections), end(connections), [id](auto &t) {
+                        return get<1>(t).id == id;
+                    });
+
+                    if (connection == end(connections)) {
+                        LOG(DEBUG) << "[main] Got message for client_id " << id << " but no connection found";
+                        continue;
+                    }
+
+                    server_gateway_msg_dispatcher.trigger_handler(msg, make_optional(ref(get<1>(*connection))));
+                }
+            } catch (serialization_exception &e) {
+                cout << "[main] received exception " << e.what() << endl;
             }
-        } catch (serialization_exception &e) {
-            cout << "received exception " << e.what() << endl;
         }
+
+        LOG(INFO) << "[main] closing";
+
+        auto loop = h.getLoop();
+        auto closeLambda = [](Async *as) -> void {
+            uWS::Hub *hub = static_cast<uWS::Hub *>(as->data);
+            hub->getLoop()->destroy();
+        };
+        Async async{loop};
+        async.setData(&h);
+        async.start(closeLambda);
+        async.send();
+
+        producer->close();
+        gateway_consumer->close();
+        backend_consumer->close();
+
+        backend_thread->join();
+
+        auto now = chrono::system_clock::now().time_since_epoch().count();
+        auto wait_until = (chrono::system_clock::now() += 2000ms).time_since_epoch().count();
+
+        while (!uwsQuit && now < wait_until) {
+            this_thread::sleep_for(100ms);
+            now = chrono::system_clock::now().time_since_epoch().count();
+        }
+
+        async.close();
+
+        if(!uwsQuit) {
+            uws_thread->detach();
+        } else {
+            uws_thread->join();
+        }
+    } catch (const runtime_error& e) {
+        LOG(ERROR) << "[main] error: " << typeid(e).name() << "-" << e.what();
     }
-
-    LOG(INFO) << "closing";
-
-    auto loop = h.getLoop();
-    auto closeLambda = [](Async* as) -> void {
-        uWS::Hub *hub = static_cast<uWS::Hub*>(as->data);
-        hub->getLoop()->destroy();
-    };
-    Async async{loop};
-    async.setData(&h);
-    async.start(closeLambda);
-    async.send();
-
-    producer->close();
-    consumer->close();
-
-    auto now = chrono::system_clock::now().time_since_epoch().count();
-    auto wait_until = (chrono::system_clock::now() += 2000ms).time_since_epoch().count();
-
-    while(!uwsQuit && now < wait_until) {
-        this_thread::sleep_for(100ms);
-        now = chrono::system_clock::now().time_since_epoch().count();
-    }
-
-    async.close();
 
     return 0;
 }

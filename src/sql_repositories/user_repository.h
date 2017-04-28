@@ -19,6 +19,7 @@
 #pragma once
 
 #include <string>
+#include <custom_optional.h>
 #include "database_pool.h"
 
 namespace roa {
@@ -27,17 +28,42 @@ namespace roa {
         std::string username;
         std::string password;
         std::string email;
-        uint32_t login_attempts;
+        int8_t login_attempts;
+        int8_t admin_status;
     };
 
     class iuser_repository {
     public:
         virtual ~iuser_repository() = default;
 
-        virtual void insert_user(user usr) = 0;
+        /**
+         * Insert a user
+         * @param usr Reference to user, id gets set on succesful insertion
+         * @return true if insert, false if not
+         */
+        virtual bool insert_user_if_not_exists(user& usr) = 0;
+
+        /**
+         * Update a user
+         * @param usr
+         */
         virtual void update_user(user usr) = 0;
-        virtual user get_user(std::string username) = 0;
-        virtual user get_user(uint64_t id) = 0;
+
+        /**
+         * Get user by username
+         * @param username
+         * @return user
+         * @throws not_found_exception
+         */
+        virtual STD_OPTIONAL<user> get_user(std::string username) = 0;
+
+        /**
+         * Get user by id
+         * @param id
+         * @return user
+         * @throws not_found_exception
+         */
+        virtual STD_OPTIONAL<user> get_user(uint64_t id) = 0;
     };
 
     class user_repository : public iuser_repository {
@@ -45,10 +71,10 @@ namespace roa {
         user_repository(idatabase_pool& database_pool);
         ~user_repository();
 
-        void insert_user(user usr);
-        void update_user(user usr);
-        user get_user(std::string username);
-        user get_user(uint64_t id);
+        bool insert_user_if_not_exists(user& usr) override;
+        void update_user(user usr) override;
+        STD_OPTIONAL<user> get_user(std::string username) override;
+        STD_OPTIONAL<user> get_user(uint64_t id) override;
 
     private:
         idatabase_pool& _database_pool;

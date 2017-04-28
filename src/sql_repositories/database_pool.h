@@ -32,6 +32,10 @@ namespace roa {
     public:
         virtual ~idatabase_pool() = default;
 
+        /**
+         * Get a connection from the pool, sleeps and retries infinitely until a connection is free
+         * @return
+         */
         virtual std::unique_ptr<idatabase_connection> get_connection() = 0;
     };
 
@@ -43,6 +47,11 @@ namespace roa {
         void create_connections(std::string connection_string, uint32_t min_connections = 5);
 
         std::unique_ptr<idatabase_connection> get_connection() override;
+
+        /**
+         * Marks connection as available again
+         * @param id
+         */
         void release_connection(uint32_t id);
     private:
         std::string _connection_string;

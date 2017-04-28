@@ -19,20 +19,22 @@
 #pragma once
 
 #include "../message_dispatcher.h"
+#include "../../sql_repositories/user_repository.h"
 #include <kafka_producer.h>
 #include "../../config.h"
 
 namespace roa {
-    class client_admin_quit_handler : public imessage_handler<false> {
+    class backend_register_handler : public imessage_handler<false> {
     public:
-        client_admin_quit_handler(Config config, std::shared_ptr<ikafka_producer<false>> producer);
-        ~client_admin_quit_handler() override = default;
+        backend_register_handler(Config config, iuser_repository& user_repository, std::shared_ptr<ikafka_producer<false>> producer);
+        ~backend_register_handler() override = default;
 
         void handle_message(std::unique_ptr<message<false> const> const &msg, STD_OPTIONAL<std::reference_wrapper<user_connection>> connection) override;
 
-        static constexpr uint32_t message_id = ADMIN_QUIT_MESSAGE_TYPE;
+        static constexpr uint32_t message_id = REGISTER_MESSAGE_TYPE;
     private:
         Config _config;
+        iuser_repository& _user_repository;
         std::shared_ptr<ikafka_producer<false>> _producer;
     };
 }

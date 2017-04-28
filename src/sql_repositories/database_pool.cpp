@@ -18,11 +18,12 @@
 
 #include "database_pool.h"
 #include "database_connection.h"
-#include <external/common/src/macros.h>
+#include <macros.h>
 #include <mutex>
 #include <condition_variable>
 #include <algorithm>
-#include <external/common/external/easyloggingpp/src/easylogging++.h>
+#include <easylogging++.h>
+#include <thread>
 
 using namespace std;
 using namespace roa;
@@ -55,33 +56,29 @@ std::unique_ptr<idatabase_connection> database_pool::get_connection() {
         throw runtime_error("pool not initialized yet");
     }
 
-    //mutex m;
-    //unique_lock<mutex> l(m);
-    //condition_variable cv;
     uint32_t id = _min_connections+1;
     shared_ptr<connection> conn;
 
-    /*cv.wait(l, [&]{
-        lock_guard<mutex> cl(_connections_mutex);
-        return any_of(begin(_connections), end(_connections), [&](tuple<bool, uint32_t, shared_ptr<connection>> &t){
-            // true == available for use, false = current in use
-            if(get<0>(t) == true) {
+    while(id > _min_connections) {
+        {
+            lock_guard<mutex> cl(_connections_mutex);
+            for (auto &c : _connections) {
+                // true == available for use, false = current in use
+                if (get<0>(c) == true) {
 
-                get<0>(t) = false;
-                id = get<1>(t);
-                conn = get<2>(t);
+                    get<0>(c) = false;
+                    id = get<1>(c);
+                    conn = get<2>(c);
 
-                LOG(DEBUG) << "got connection " << id;
-                return true;
-            }
-            return false;
-        });
-    });*/
+                    LOG(DEBUG) << "got connection " << id;
+                }
+            };
+        }
 
-    auto& t = _connections[0];
-    get<0>(t) = false;
-    id = get<1>(t);
-    conn = get<2>(t);
+        if(unlikely(id > _min_connections)) {
+            this_thread::sleep_for(1ms);
+        }
+    }
 
     if(unlikely(!conn)) {
         throw runtime_error("Unexpected error, conn should never be null.");

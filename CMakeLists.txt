@@ -9,7 +9,9 @@ set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
 set(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR})
 
 # only support linux for now
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O2 -Wall -Wno-long-long -Wfloat-equal -pedantic -std=c++17")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DELPP_THREAD_SAFE -Wall -Wno-unused-variable -Wno-long-long -Wfloat-equal -pedantic -std=c++17")
+set(CMAKE_CXX_FLAGS_DEBUG "-g3 -ggdb -O0")
+set(CMAKE_CXX_FLAGS_RELEASE "-g -O2")
 
 include_directories("${PROJECT_SOURCE_DIR}")
 
@@ -32,8 +34,32 @@ find_library(LIBRDKAFKA_LIBRARY rdkafka HINTS ${CMAKE_SOURCE_DIR}/external/commo
 find_library(LIBRDKAFKAPP_LIBRARY rdkafka++ HINTS ${CMAKE_SOURCE_DIR}/external/common/external/librdkafka/src-cpp)
 find_library(UWEBSOCKET_LIBRARY uWS HINTS ${CMAKE_SOURCE_DIR}/external/uWebSockets)
 find_library(PQXX_LIBRARY pqxx HINTS ${CMAKE_SOURCE_DIR}/external/libpqxx/src/.libs)
-find_library(SODIUM_LIBRARY sodium HINTS ${CMAKE_SOURCE_DIR}/external/libsodium/src/libsodium)
+find_library(SODIUM_LIBRARY sodium HINTS ${CMAKE_SOURCE_DIR}/external/libsodium/src/libsodium/.libs)
 find_library(LIBROA_COMMON_LIBRARY RealmOfAesirCommon HINTS ${CMAKE_SOURCE_DIR}/external/common/bin)
+
+if(NOT LIBRDKAFKA_LIBRARY)
+    message(FATAL_ERROR "librdkafka not found")
+endif()
+
+if(NOT LIBRDKAFKAPP_LIBRARY)
+    message(FATAL_ERROR "librdkafkapp not found")
+endif()
+
+if(NOT UWEBSOCKET_LIBRARY)
+    message(FATAL_ERROR "libuws not found")
+endif()
+
+if(NOT PQXX_LIBRARY)
+    message(FATAL_ERROR "libpqxx not found")
+endif()
+
+if(NOT SODIUM_LIBRARY)
+    message(FATAL_ERROR "libsodium not found")
+endif()
+
+if(NOT LIBROA_COMMON_LIBRARY)
+    message(FATAL_ERROR "libroa not found")
+endif()
 
 target_link_libraries(RealmOfAesirBackend PUBLIC ${LIBROA_COMMON_LIBRARY})
 target_link_libraries(RealmOfAesirBackend PUBLIC ${LIBRDKAFKAPP_LIBRARY})

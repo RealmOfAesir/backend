@@ -16,16 +16,13 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "server_quit_handler.h"
+#pragma once
 
-using namespace roa;
+namespace roa {
+    class sql_not_found_exception : public std::runtime_error {
+    public:
+        explicit sql_not_found_exception(std::string error) : runtime_error(error) {}
 
-server_quit_handler::server_quit_handler(std::atomic<bool> *quit) : _quit(quit) {
-
+        sql_not_found_exception() : runtime_error("") {}
+    };
 }
-
-void server_quit_handler::handle_message(std::unique_ptr<message<false> const> const &msg) {
-    *this->_quit = true;
-}
-
-uint32_t constexpr server_quit_handler::message_id;
