@@ -1,15 +1,9 @@
-[submodule "external/common"]
-	path = external/common
-	url = https://github.com/RealmOfAesir/common.git
-[submodule "external/json"]
-	path = external/json
-	url = https://github.com/nlohmann/json.git
 [submodule "external/uWebSockets"]
 	path = external/uWebSockets
 	url = https://github.com/uWebSockets/uWebSockets.git
-[submodule "external/libpqxx"]
-	path = external/libpqxx
-	url = https://github.com/jtv/libpqxx.git
 [submodule "external/libsodium"]
 	path = external/libsodium
 	url = https://github.com/jedisct1/libsodium.git
+[submodule "external/common_backend"]
+	path = external/common_backend
+	url = https://github.com/RealmOfAesir/common_backend.git

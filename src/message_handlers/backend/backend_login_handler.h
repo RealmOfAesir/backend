@@ -19,7 +19,7 @@
 #pragma once
 
 #include "../message_dispatcher.h"
-#include "../../sql_repositories/user_repository.h"
+#include <repositories/user_repository.h>
 #include <kafka_producer.h>
 #include "../../config.h"
 

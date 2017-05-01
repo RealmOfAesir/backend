@@ -43,8 +43,8 @@
 #include "message_handlers/client/client_admin_quit_handler.h"
 #include "message_handlers/client/client_login_handler.h"
 #include "message_handlers/client/client_register_handler.h"
-#include "sql_repositories/user_repository.h"
-#include "sql_repositories/database_transaction.h"
+#include "repositories/user_repository.h"
+#include "database_transaction.h"
 #include "user_connection.h"
 #include "config.h"
 
