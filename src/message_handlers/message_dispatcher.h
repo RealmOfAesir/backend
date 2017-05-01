@@ -20,9 +20,7 @@
 
 #include <unordered_map>
 #include <vector>
-#include "src/user_connection.h"
 #include <messages/message.h>
-#include <custom_optional.h>
 
 namespace roa {
 
@@ -30,7 +28,7 @@ namespace roa {
     class imessage_handler {
     public:
         virtual ~imessage_handler() = default;
-        virtual void handle_message(std::unique_ptr<message<UseJson> const> const &msg, STD_OPTIONAL<std::reference_wrapper<user_connection>> connection) = 0;
+        virtual void handle_message(std::unique_ptr<message<UseJson> const> const &msg) = 0;
     };
 
     template <bool UseJson>
@@ -50,7 +48,7 @@ namespace roa {
             _handlers[handler::message_id].push_back(std::make_unique<handler>(args...));
         }
 
-        void trigger_handler(std::tuple<uint32_t, std::unique_ptr<message<UseJson> const>> const &msg, STD_OPTIONAL<std::reference_wrapper<user_connection>> connection) {
+        void trigger_handler(std::tuple<uint32_t, std::unique_ptr<message<UseJson> const>> const &msg) {
             auto iterator = _handlers.find(std::get<0>(msg));
 
             if(iterator == std::end(_handlers)) {
@@ -58,7 +56,7 @@ namespace roa {
             }
 
             for(auto &msg_handler : iterator->second) {
-                msg_handler->handle_message(std::get<1>(msg), connection);
+                msg_handler->handle_message(std::get<1>(msg));
             }
         }
     private:

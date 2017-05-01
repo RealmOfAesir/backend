@@ -29,7 +29,7 @@ namespace roa {
         backend_register_handler(Config config, iuser_repository& user_repository, std::shared_ptr<ikafka_producer<false>> producer);
         ~backend_register_handler() override = default;
 
-        void handle_message(std::unique_ptr<message<false> const> const &msg, STD_OPTIONAL<std::reference_wrapper<user_connection>> connection) override;
+        void handle_message(std::unique_ptr<message<false> const> const &msg) override;
 
         static constexpr uint32_t message_id = REGISTER_MESSAGE_TYPE;
     private:

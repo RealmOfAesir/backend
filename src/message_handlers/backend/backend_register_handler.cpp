@@ -39,8 +39,7 @@ backend_register_handler::backend_register_handler(Config config, iuser_reposito
 
 }
 
-void backend_register_handler::handle_message(unique_ptr<message<false> const> const &msg,
-                                             STD_OPTIONAL<reference_wrapper<user_connection>> connection) {
+void backend_register_handler::handle_message(unique_ptr<message<false> const> const &msg) {
     string queue_name = "server-" + to_string(msg->sender.server_origin_id);
     try {
         if (auto register_msg = dynamic_cast<register_message<false> const *>(msg.get())) {

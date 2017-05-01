@@ -27,7 +27,7 @@ namespace roa {
         backend_quit_handler(std::atomic<bool> *quit);
         ~backend_quit_handler() override = default;
 
-        void handle_message(std::unique_ptr<message<false> const> const &msg, STD_OPTIONAL<std::reference_wrapper<user_connection>> connection) override;
+        void handle_message(std::unique_ptr<message<false> const> const &msg) override;
 
         static constexpr uint32_t message_id = ADMIN_QUIT_MESSAGE_TYPE;
     private:

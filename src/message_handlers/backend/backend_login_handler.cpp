@@ -39,8 +39,7 @@ backend_login_handler::backend_login_handler(Config config, iuser_repository &us
 
 }
 
-void backend_login_handler::handle_message(unique_ptr<message<false> const> const &msg,
-                                          STD_OPTIONAL<reference_wrapper<user_connection>> connection) {
+void backend_login_handler::handle_message(unique_ptr<message<false> const> const &msg) {
     string queue_name = "server-" + to_string(msg->sender.server_origin_id);
     try {
         if (auto login_msg = dynamic_cast<login_message<false> const *>(msg.get())) {
