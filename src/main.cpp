@@ -31,11 +31,11 @@
 #include <unordered_map>
 #include <atomic>
 #include <exceptions.h>
-#include "src/message_handlers/backend/backend_quit_handler.h"
+#include "message_handlers/backend/backend_quit_handler.h"
 #include <roa_di.h>
 #include <macros.h>
-#include "src/message_handlers/backend/backend_register_handler.h"
-#include "src/message_handlers/backend/backend_login_handler.h"
+#include "message_handlers/backend/backend_register_handler.h"
+#include "message_handlers/backend/backend_login_handler.h"
 #include "repositories/user_repository.h"
 #include "database_transaction.h"
 #include "config.h"
