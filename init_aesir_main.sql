@@ -18,7 +18,8 @@ CREATE TABLE licenses (
 CREATE TABLE banned_users (
     id BIGSERIAL PRIMARY KEY,
     ip text NULL,
-    user_id BIGINT NULL
+    user_id BIGINT NULL,
+    until TIMESTAMP NULL
 );
 
 CREATE TABLE settings (
