@@ -17,7 +17,9 @@ set(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR})
 # only support linux/g++ for now
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DELPP_THREAD_SAFE -Wall -Wno-unused-variable -Wno-long-long -Wno-unused-variable -pedantic -std=c++17 ")
 set(CMAKE_CXX_FLAGS_DEBUG "-g3 -ggdb -O0")
-set(CMAKE_CXX_FLAGS_RELEASE "-g -O2")
+set(CMAKE_CXX_FLAGS_RELEASE "-O2")
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-g -O2")
+set(CMAKE_CXX_FLAGS_MINSIZEREL "-Os")
 
 add_subdirectory(src)
 
