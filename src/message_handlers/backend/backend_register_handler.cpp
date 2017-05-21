@@ -34,7 +34,7 @@ static inline register_response_message<false> create_message(uint32_t client_id
     };
 }
 
-backend_register_handler::backend_register_handler(Config config, iuser_repository &user_repository, std::shared_ptr<ikafka_producer<false>> producer)
+backend_register_handler::backend_register_handler(Config config, iusers_repository &user_repository, std::shared_ptr<ikafka_producer<false>> producer)
         : _config(config), _user_repository(user_repository), _producer(producer) {
 
 }
@@ -55,7 +55,8 @@ void backend_register_handler::handle_message(unique_ptr<message<false> const> c
             }
 
             user usr{0, register_msg->username, string(hashed_password), register_msg->email, 0};
-            if(!_user_repository.insert_user_if_not_exists(usr)) {
+            auto transaction = _user_repository.create_transaction();
+            if(!_user_repository.insert_user_if_not_exists(usr, transaction)) {
                 LOG(DEBUG) << "Registering " << usr.username << " already exists";
                 this->_producer->enqueue_message(queue_name, create_message(msg->sender.client_id, _config.server_id, 0, -1, "User already exists"));
             } else {

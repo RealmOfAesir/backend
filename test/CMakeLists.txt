@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.5.0 FATAL_ERROR)
 project(Test CXX)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-file(GLOB PROJECT_SOURCES ${PROJECT_SOURCE_DIR}/*.cpp ${PROJECT_SOURCE_DIR}/test_helpers/*.cpp)
+file(GLOB PROJECT_SOURCES ${PROJECT_SOURCE_DIR}/*.cpp ${PROJECT_SOURCE_DIR}/test_helpers/*.cpp ${CMAKE_SOURCE_DIR}/src/**/*.cpp)
 file(GLOB EASYLOGGING_SOURCE ${CMAKE_SOURCE_DIR}/external/common_backend/external/common/external/easyloggingpp/src/easylogging++.cc)
 add_executable(Test ${PROJECT_SOURCES} ${EASYLOGGING_SOURCE} main.cpp)
 

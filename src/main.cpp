@@ -20,7 +20,7 @@
 #include <json.hpp>
 #include <kafka_consumer.h>
 #include <kafka_producer.h>
-#include <admin_messages/quit_message.h>
+#include <admin_messages/admin_quit_message.h>
 
 #include <signal.h>
 #include <string>
@@ -36,7 +36,7 @@
 #include <macros.h>
 #include "message_handlers/backend/backend_register_handler.h"
 #include "message_handlers/backend/backend_login_handler.h"
-#include "repositories/user_repository.h"
+#include "repositories/users_repository.h"
 #include "database_transaction.h"
 #include "config.h"
 
@@ -168,13 +168,13 @@ int main() {
     auto common_injector = create_common_di_injector();
     auto backend_injector = boost::di::make_injector(
         boost::di::bind<idatabase_transaction>.to<database_transaction>(),
-        boost::di::bind<idatabase_connection>.to<idatabase_connection>(),
+        boost::di::bind<idatabase_connection>.to<database_connection>(),
         boost::di::bind<idatabase_pool>.to(db_pool),
-        boost::di::bind<iuser_repository>.to<user_repository>());
+        boost::di::bind<iusers_repository>.to<users_repository>());
 
     auto producer = common_injector.create<shared_ptr<ikafka_producer<false>>>();
     auto backend_consumer = common_injector.create<shared_ptr<ikafka_consumer<false>>>();
-    auto user_repo = backend_injector.create<user_repository>();
+    auto user_repo = backend_injector.create<users_repository>();
     backend_consumer->start(config.broker_list, config.group_id, std::vector<std::string>{"server-" + to_string(config.server_id), "user_access_control_messages", "broadcast"});
     producer->start(config.broker_list);
 
@@ -183,8 +183,8 @@ int main() {
         message_dispatcher<false> backend_server_msg_dispatcher;
 
         backend_server_msg_dispatcher.register_handler<backend_quit_handler>(&quit);
-        backend_server_msg_dispatcher.register_handler<backend_register_handler, Config, iuser_repository&, shared_ptr<ikafka_producer<false>>>(config, user_repo, producer);
-        backend_server_msg_dispatcher.register_handler<backend_login_handler, Config, iuser_repository&, shared_ptr<ikafka_producer<false>>>(config, user_repo, producer);
+        backend_server_msg_dispatcher.register_handler<backend_register_handler, Config, iusers_repository&, shared_ptr<ikafka_producer<false>>>(config, user_repo, producer);
+        backend_server_msg_dispatcher.register_handler<backend_login_handler, Config, iusers_repository&, shared_ptr<ikafka_producer<false>>>(config, user_repo, producer);
 
         LOG(INFO) << "[main] starting main thread";
 

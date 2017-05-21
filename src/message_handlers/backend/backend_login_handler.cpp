@@ -34,7 +34,7 @@ static inline login_response_message<false> create_message(uint32_t client_id, u
     };
 }
 
-backend_login_handler::backend_login_handler(Config config, iuser_repository &user_repository, std::shared_ptr<ikafka_producer<false>> producer)
+backend_login_handler::backend_login_handler(Config config, iusers_repository &user_repository, std::shared_ptr<ikafka_producer<false>> producer)
         : _config(config), _user_repository(user_repository), _producer(producer) {
 
 }
@@ -54,7 +54,8 @@ void backend_login_handler::handle_message(unique_ptr<message<false> const> cons
                 this->_producer->enqueue_message(queue_name, create_message(msg->sender.client_id, _config.server_id, 0, -1, "Something went wrong"));
             }
 
-            STD_OPTIONAL<user> usr = _user_repository.get_user(login_msg->username);
+            auto transaction = _user_repository.create_transaction();
+            STD_OPTIONAL<user> usr = _user_repository.get_user(login_msg->username, transaction);
             if(!usr) {
                 LOG(DEBUG) << "Login " << login_msg->username << " doesn't exist";
                 this->_producer->enqueue_message(queue_name, create_message(msg->sender.client_id, _config.server_id, 0, -1, "User doesn't exist"));

@@ -16,22 +16,32 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#pragma once
+#include "users_repository.h"
+#include "banned_users_repository.h"
 
-#include "../message_dispatcher.h"
-#include <atomic>
-#include <admin_messages/admin_quit_message.h>
+#include <pqxx/pqxx>
+#include <easylogging++.h>
 
-namespace roa {
-    class backend_quit_handler : public imessage_handler<false> {
-    public:
-        backend_quit_handler(std::atomic<bool> *quit);
-        ~backend_quit_handler() override = default;
+#include <sql_exceptions.h>
 
-        void handle_message(std::unique_ptr<message<false> const> const &msg) override;
+using namespace std;
+using namespace experimental;
+using namespace roa;
+using namespace pqxx;
 
-        static constexpr uint32_t message_id = admin_quit_message<false>::id;
-    private:
-        std::atomic<bool> *_quit;
-    };
+repository::repository(idatabase_pool& database_pool, std::unique_ptr<idatabase_connection> connection)
+        : _database_pool(database_pool), _connection(move(connection)) {
+
+}
+
+repository::~repository() {
+
+}
+
+unique_ptr<idatabase_transaction> repository::create_transaction()  {
+    if(!_connection) {
+        _connection = _database_pool.get_connection();
+    }
+
+    return _connection->create_transaction();
 }

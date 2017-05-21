@@ -19,22 +19,23 @@
 #pragma once
 
 #include "../message_dispatcher.h"
-#include <repositories/user_repository.h>
+#include "repositories/users_repository.h"
 #include <kafka_producer.h>
+#include <messages/user_access_control/login_message.h>
 #include "../../config.h"
 
 namespace roa {
     class backend_login_handler : public imessage_handler<false> {
     public:
-        backend_login_handler(Config config, iuser_repository& user_repository, std::shared_ptr<ikafka_producer<false>> producer);
+        backend_login_handler(Config config, iusers_repository& user_repository, std::shared_ptr<ikafka_producer<false>> producer);
         ~backend_login_handler() override = default;
 
         void handle_message(std::unique_ptr<message<false> const> const &msg) override;
 
-        static constexpr uint32_t message_id = LOGIN_MESSAGE_TYPE;
+        static constexpr uint32_t message_id = login_message<false>::id;
     private:
         Config _config;
-        iuser_repository& _user_repository;
+        iusers_repository& _user_repository;
         std::shared_ptr<ikafka_producer<false>> _producer;
     };
 }
