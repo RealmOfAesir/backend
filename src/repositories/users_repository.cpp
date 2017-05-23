@@ -50,8 +50,9 @@ unique_ptr<idatabase_transaction> users_repository::create_transaction() {
 
 bool users_repository::insert_user_if_not_exists(user& usr, std::unique_ptr<idatabase_transaction> const &transaction) {
     auto result = transaction->execute(
-            "INSERT INTO users (username, password, email, login_attempts) VALUES ('" + transaction->escape(usr.username) +
-            "', '" + transaction->escape(usr.password) + "', '" + transaction->escape(usr.email) + "', 0) ON CONFLICT DO NOTHING RETURNING id");
+            "INSERT INTO users (username, password, email, login_attempts, admin) VALUES ('" + transaction->escape(usr.username) +
+            "', '" + transaction->escape(usr.password) + "', '" + transaction->escape(usr.email) +
+            "', " + to_string(usr.login_attempts) + ", " + to_string(usr.admin) + ") ON CONFLICT DO NOTHING RETURNING id");
 
     LOG(DEBUG) << "insert_user contains " << result.size() << " entries";
 
@@ -67,9 +68,8 @@ bool users_repository::insert_user_if_not_exists(user& usr, std::unique_ptr<idat
 
 void users_repository::update_user(user const & usr, std::unique_ptr<idatabase_transaction> const &transaction) {
     auto result = transaction->execute("UPDATE users SET username = '" + transaction->escape(usr.username) +
-             "', password = '" + transaction->escape(usr.password) + "', email = '" + transaction->escape(usr.email) + "' WHERE id = " + to_string(usr.id));
-
-    LOG(DEBUG) << "update_user contains " << result.size() << " entries";
+             "', password = '" + transaction->escape(usr.password) + "', email = '" + transaction->escape(usr.email) +
+             "', login_attempts = " + to_string(usr.login_attempts) + ", admin = " + to_string(usr.admin) + " WHERE id = " + to_string(usr.id));
 }
 
 STD_OPTIONAL<user> users_repository::get_user(string const & username, std::unique_ptr<idatabase_transaction> const &transaction) {
@@ -84,7 +84,7 @@ STD_OPTIONAL<user> users_repository::get_user(string const & username, std::uniq
     return make_optional<user>({result[0]["id"].as<uint64_t>(), result[0]["username"].as<string>(),
                 result[0]["password"].as<string>(), result[0]["email"].as<string>(),
                 // sadly, int8_t is not implemented in pqxx. postgres field is smallint though.
-                (int8_t)result[0]["login_attempts"].as<int32_t>(), (int8_t)result[0]["admin_status"].as<int32_t>()});
+                (int8_t)result[0]["login_attempts"].as<int32_t>(), (int8_t)result[0]["admin"].as<int32_t>()});
 }
 
 STD_OPTIONAL<user> users_repository::get_user(uint64_t id, std::unique_ptr<idatabase_transaction> const &transaction) {
@@ -99,5 +99,5 @@ STD_OPTIONAL<user> users_repository::get_user(uint64_t id, std::unique_ptr<idata
     return make_optional<user>({result[0]["id"].as<uint64_t>(), result[0]["username"].as<string>(),
                 result[0]["password"].as<string>(), result[0]["email"].as<string>(),
                 // sadly, int8_t is not implemented in pqxx. postgres field is smallint though.
-                (int8_t)result[0]["login_attempts"].as<int32_t>(), (int8_t)result[0]["admin_status"].as<int32_t>()});
+                (int8_t)result[0]["login_attempts"].as<int32_t>(), (int8_t)result[0]["admin"].as<int32_t>()});
 }

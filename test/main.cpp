@@ -21,10 +21,43 @@
 
 #include <catch.hpp>
 #include <easylogging++.h>
+#include <json.hpp>
+
+#include "test_helpers/startup_helper.h"
 
 INITIALIZE_EASYLOGGINGPP
 
 using namespace std;
+using namespace roa;
+using json = nlohmann::json;
+
+Config parse_env_file() {
+    string env_contents;
+    ifstream env(".env");
+
+    if(!env) {
+        LOG(ERROR) << "[main] no .env file found. Please make one.";
+        exit(1);
+    }
+
+    env.seekg(0, ios::end);
+    env_contents.resize(env.tellg());
+    env.seekg(0, ios::beg);
+    env.read(&env_contents[0], env_contents.size());
+    env.close();
+
+    auto env_json = json::parse(env_contents);
+    Config config;
+
+    try {
+        config.connection_string = env_json["CONNECTION_STRING"];
+    } catch (const std::exception& e) {
+        LOG(ERROR) << "[main] CONNECTION_STRING missing in .env file.";
+        exit(1);
+    }
+
+    return config;
+}
 
 void init_stuff() {
     ios::sync_with_stdio(false);
@@ -32,6 +65,10 @@ void init_stuff() {
     el::Configurations defaultConf;
     defaultConf.setGlobally(el::ConfigurationType::Format, "%datetime %level: %msg");
     el::Loggers::reconfigureAllLoggers(defaultConf);
+
+    config = parse_env_file();
+    config.connection_string.size();
+    db_pool.create_connections(config.connection_string);
 }
 
 int main(int argc, char const * const * argv) {

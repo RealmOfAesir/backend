@@ -61,7 +61,7 @@ void backend_register_handler::handle_message(unique_ptr<message<false> const> c
                 this->_producer->enqueue_message(queue_name, create_message(msg->sender.client_id, _config.server_id, 0, -1, "User already exists"));
             } else {
                 LOG(DEBUG) << "Registered user " << usr.username;
-                this->_producer->enqueue_message(queue_name, create_message(msg->sender.client_id, _config.server_id, usr.admin_status, 0, ""));
+                this->_producer->enqueue_message(queue_name, create_message(msg->sender.client_id, _config.server_id, usr.admin, 0, ""));
             }
         } else {
             LOG(ERROR) << "Couldn't cast message to register_message";

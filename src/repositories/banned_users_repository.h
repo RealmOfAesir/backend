@@ -31,7 +31,7 @@ namespace roa {
         uint64_t id;
         std::string ip;
         STD_OPTIONAL<user> _user;
-        STD_OPTIONAL<std::chrono::steady_clock::time_point> until;
+        STD_OPTIONAL<std::chrono::system_clock::time_point> until;
     };
 
     class ibanned_users_repository : public irepository {
@@ -60,7 +60,7 @@ namespace roa {
          * @return user
          * @throws not_found_exception
          */
-        virtual STD_OPTIONAL<banned_user> get_banned_user(std::string& username, std::unique_ptr<idatabase_transaction> const &transaction) = 0;
+        virtual STD_OPTIONAL<banned_user> is_username_or_ip_banned(STD_OPTIONAL<std::string> username, STD_OPTIONAL<std::string> ip, std::unique_ptr<idatabase_transaction> const &transaction) = 0;
 
         /**
          * Get user by id
@@ -83,7 +83,7 @@ namespace roa {
 
         void insert_banned_user(banned_user& usr, std::unique_ptr<idatabase_transaction> const &transaction) override;
         void update_banned_user(banned_user& usr, std::unique_ptr<idatabase_transaction> const &transaction) override;
-        STD_OPTIONAL<banned_user> get_banned_user(std::string& username, std::unique_ptr<idatabase_transaction> const &transaction) override;
+        STD_OPTIONAL<banned_user> is_username_or_ip_banned(STD_OPTIONAL<std::string> username, STD_OPTIONAL<std::string> ip, std::unique_ptr<idatabase_transaction> const &transaction) override;
         STD_OPTIONAL<banned_user> get_banned_user(uint64_t id, std::unique_ptr<idatabase_transaction> const &transaction) override;
     };
 }

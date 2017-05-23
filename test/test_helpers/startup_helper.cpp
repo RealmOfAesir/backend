@@ -1,5 +1,5 @@
 /*
-    Realm of Aesir backend
+    Realm of Aesir
     Copyright (C) 2016  Michael de Lang
 
     This program is free software: you can redistribute it and/or modify
@@ -16,16 +16,9 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#pragma once
-
-#include <string>
+#include "startup_helper.h"
 
 namespace roa {
-    struct Config {
-        std::string broker_list;
-        std::string group_id;
-        uint32_t server_id;
-        std::string connection_string;
-        std::string debug_level;
-    };
+    Config config;
+    database_pool db_pool;
 }

@@ -61,7 +61,7 @@ void backend_login_handler::handle_message(unique_ptr<message<false> const> cons
                 this->_producer->enqueue_message(queue_name, create_message(msg->sender.client_id, _config.server_id, 0, -1, "User doesn't exist"));
             } else {
                 LOG(DEBUG) << "Login " << login_msg->username;
-                this->_producer->enqueue_message(queue_name, create_message(msg->sender.client_id, _config.server_id, usr->admin_status, 0, ""));
+                this->_producer->enqueue_message(queue_name, create_message(msg->sender.client_id, _config.server_id, usr->admin, 0, ""));
             }
         } else {
             LOG(ERROR) << "Couldn't cast message to login_message";

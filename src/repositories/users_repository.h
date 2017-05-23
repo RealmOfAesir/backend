@@ -28,8 +28,8 @@ namespace roa {
         std::string username;
         std::string password;
         std::string email;
-        int8_t login_attempts;
-        int8_t admin_status;
+        int16_t login_attempts;
+        int16_t admin;
     };
 
     class iusers_repository : public irepository {

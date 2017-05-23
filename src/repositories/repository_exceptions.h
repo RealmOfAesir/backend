@@ -1,5 +1,5 @@
 /*
-    Realm of Aesir backend
+    Realm of Aesir
     Copyright (C) 2016  Michael de Lang
 
     This program is free software: you can redistribute it and/or modify
@@ -18,14 +18,15 @@
 
 #pragma once
 
+#include <exception>
+#include <stdexcept>
 #include <string>
 
 namespace roa {
-    struct Config {
-        std::string broker_list;
-        std::string group_id;
-        uint32_t server_id;
-        std::string connection_string;
-        std::string debug_level;
+    class wrong_parameters_exception : public std::runtime_error {
+    public:
+        explicit wrong_parameters_exception(std::string& error) : runtime_error(error) {}
+
+        wrong_parameters_exception() : runtime_error("") {}
     };
 }

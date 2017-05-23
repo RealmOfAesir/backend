@@ -1,7 +1,7 @@
 CREATE TABLE users (
     id BIGSERIAL PRIMARY KEY,
     username citext NOT NULL,
-    password CHARACTER(60) NOT NULL,
+    password VARCHAR(60) NOT NULL,
     email citext NOT NULL,
     login_attempts SMALLINT NOT NULL DEFAULT 0,
     verification_code text DEFAULT NULL,
