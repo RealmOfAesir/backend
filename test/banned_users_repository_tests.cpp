@@ -36,10 +36,10 @@ auto backend_injector = boost::di::make_injector(
         boost::di::bind<iusers_repository>.to<users_repository>(),
         boost::di::bind<ibanned_users_repository>.to<banned_users_repository>());
 
-TEST_CASE("banned users tests") {
+TEST_CASE("banned repository users tests") {
     users_repository user_repo = backend_injector.create<users_repository>();
     banned_users_repository banned_user_repo = backend_injector.create<banned_users_repository>();
-    SECTION( "banned user inserteded correctly" ) {
+    SECTION( "banned user inserted correctly" ) {
         auto transaction = banned_user_repo.create_transaction();
         banned_user usr{0, "192.168.0.1"s, {}, chrono::system_clock::now() += chrono::seconds(10)};
         banned_user_repo.insert_banned_user(usr, transaction);

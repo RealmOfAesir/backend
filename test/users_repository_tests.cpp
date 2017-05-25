@@ -34,7 +34,7 @@ auto backend_injector = boost::di::make_injector(
         boost::di::bind<irepository>.to<repository>(),
         boost::di::bind<iusers_repository>.to<users_repository>());
 
-TEST_CASE("user tests") {
+TEST_CASE("user repository tests") {
     users_repository user_repo = backend_injector.create<users_repository>();
     SECTION( "user inserted correctly" ) {
         auto transaction = user_repo.create_transaction();
