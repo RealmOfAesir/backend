@@ -6,6 +6,4 @@ cd $DIR/external/common_backend
 cd $DIR/external/libsodium
 ./configure
 make -j$CPUS
-cd $DIR/external/uWebSockets
-make
 cd $DIR
