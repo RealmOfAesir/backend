@@ -170,11 +170,13 @@ int main() {
         boost::di::bind<idatabase_transaction>.to<database_transaction>(),
         boost::di::bind<idatabase_connection>.to<database_connection>(),
         boost::di::bind<idatabase_pool>.to(db_pool),
-        boost::di::bind<iusers_repository>.to<users_repository>());
+        boost::di::bind<iusers_repository>.to<users_repository>(),
+        boost::di::bind<ibanned_users_repository>.to<banned_users_repository>());
 
     auto producer = common_injector.create<shared_ptr<ikafka_producer<false>>>();
     auto backend_consumer = common_injector.create<shared_ptr<ikafka_consumer<false>>>();
-    auto user_repo = backend_injector.create<users_repository>();
+    auto users_repo = backend_injector.create<users_repository>();
+    auto banned_users_repo = backend_injector.create<banned_users_repository>();
     backend_consumer->start(config.broker_list, config.group_id, std::vector<std::string>{"server-" + to_string(config.server_id), "user_access_control_messages", "broadcast"});
     producer->start(config.broker_list);
 
@@ -183,8 +185,8 @@ int main() {
         message_dispatcher<false> backend_server_msg_dispatcher;
 
         backend_server_msg_dispatcher.register_handler<backend_quit_handler>(&quit);
-        backend_server_msg_dispatcher.register_handler<backend_register_handler, Config, iusers_repository&, shared_ptr<ikafka_producer<false>>>(config, user_repo, producer);
-        backend_server_msg_dispatcher.register_handler<backend_login_handler, Config, iusers_repository&, shared_ptr<ikafka_producer<false>>>(config, user_repo, producer);
+        backend_server_msg_dispatcher.register_handler<backend_register_handler, Config, iusers_repository&, ibanned_users_repository&, shared_ptr<ikafka_producer<false>>>(config, users_repo, banned_users_repo, producer);
+        backend_server_msg_dispatcher.register_handler<backend_login_handler, Config, iusers_repository&, ibanned_users_repository&, shared_ptr<ikafka_producer<false>>>(config, users_repo, banned_users_repo, producer);
 
         LOG(INFO) << "[main] starting main thread";
 

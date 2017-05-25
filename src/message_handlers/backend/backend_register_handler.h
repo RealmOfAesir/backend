@@ -22,12 +22,13 @@
 #include "repositories/users_repository.h"
 #include <kafka_producer.h>
 #include <messages/user_access_control/register_message.h>
+#include <repositories/banned_users_repository.h>
 #include "../../config.h"
 
 namespace roa {
     class backend_register_handler : public imessage_handler<false> {
     public:
-        backend_register_handler(Config config, iusers_repository& user_repository, std::shared_ptr<ikafka_producer<false>> producer);
+        backend_register_handler(Config config, iusers_repository& users_repository, ibanned_users_repository& banned_users_repository, std::shared_ptr<ikafka_producer<false>> producer);
         ~backend_register_handler() override = default;
 
         void handle_message(std::unique_ptr<message<false> const> const &msg) override;
@@ -35,7 +36,8 @@ namespace roa {
         static constexpr uint32_t message_id = register_message<false>::id;
     private:
         Config _config;
-        iusers_repository& _user_repository;
+        iusers_repository& _users_repository;
+        ibanned_users_repository& _banned_users_repository;
         std::shared_ptr<ikafka_producer<false>> _producer;
     };
 }

@@ -34,8 +34,8 @@ static inline login_response_message<false> create_message(uint32_t client_id, u
     };
 }
 
-backend_login_handler::backend_login_handler(Config config, iusers_repository &user_repository, std::shared_ptr<ikafka_producer<false>> producer)
-        : _config(config), _user_repository(user_repository), _producer(producer) {
+backend_login_handler::backend_login_handler(Config config, iusers_repository &users_repository, ibanned_users_repository& banned_users_repository, std::shared_ptr<ikafka_producer<false>> producer)
+        : _config(config), _users_repository(users_repository), _banned_users_repository(banned_users_repository), _producer(producer) {
 
 }
 
@@ -43,6 +43,15 @@ void backend_login_handler::handle_message(unique_ptr<message<false> const> cons
     string queue_name = "server-" + to_string(msg->sender.server_origin_id);
     try {
         if (auto login_msg = dynamic_cast<login_message<false> const *>(msg.get())) {
+            auto transaction = _users_repository.create_transaction();
+            auto banned_user = _banned_users_repository.is_username_or_ip_banned(login_msg->username, login_msg->ip, transaction);
+
+            if(banned_user) {
+                LOG(INFO) << "logging in user, but is banned";
+                this->_producer->enqueue_message(queue_name, create_message(msg->sender.client_id, _config.server_id, 0, -2, "You are banned"));
+                return;
+            }
+
             char hashed_password[crypto_pwhash_STRBYTES];
 
             if(crypto_pwhash_str(hashed_password,
@@ -52,10 +61,11 @@ void backend_login_handler::handle_message(unique_ptr<message<false> const> cons
                                  crypto_pwhash_MEMLIMIT_MODERATE) != 0) {
                 LOG(ERROR) << "logging in user, but out of memory";
                 this->_producer->enqueue_message(queue_name, create_message(msg->sender.client_id, _config.server_id, 0, -1, "Something went wrong"));
+                return;
             }
 
-            auto transaction = _user_repository.create_transaction();
-            STD_OPTIONAL<user> usr = _user_repository.get_user(login_msg->username, transaction);
+
+            STD_OPTIONAL<user> usr = _users_repository.get_user(login_msg->username, transaction);
             if(!usr) {
                 LOG(DEBUG) << "Login " << login_msg->username << " doesn't exist";
                 this->_producer->enqueue_message(queue_name, create_message(msg->sender.client_id, _config.server_id, 0, -1, "User doesn't exist"));
