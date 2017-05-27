@@ -177,7 +177,7 @@ int main() {
     auto backend_consumer = common_injector.create<shared_ptr<ikafka_consumer<false>>>();
     auto users_repo = backend_injector.create<users_repository>();
     auto banned_users_repo = backend_injector.create<banned_users_repository>();
-    backend_consumer->start(config.broker_list, config.group_id, std::vector<std::string>{"server-" + to_string(config.server_id), "user_access_control_messages", "broadcast"});
+    backend_consumer->start(config.broker_list, config.group_id, std::vector<std::string>{"server-" + to_string(config.server_id), "backend_messages", "broadcast"});
     producer->start(config.broker_list);
 
 

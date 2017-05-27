@@ -1,0 +1,16 @@
+//
+// Created by oipo on 5/27/17.
+//
+
+#ifndef REALMOFAESIR_BACKEND_CREATE_CHARACTER_HANDLER_H
+#define REALMOFAESIR_BACKEND_CREATE_CHARACTER_HANDLER_H
+
+
+
+class backend_create_character_handler {
+
+};
+
+
+
+#endif //REALMOFAESIR_BACKEND_CREATE_CHARACTER_HANDLER_H
