@@ -28,7 +28,7 @@
 namespace roa {
     class backend_login_handler : public imessage_handler<false> {
     public:
-        backend_login_handler(Config config, iusers_repository& users_repository, ibanned_users_repository& banned_users_repository, std::shared_ptr<ikafka_producer<false>> producer);
+        explicit backend_login_handler(Config config, iusers_repository& users_repository, ibanned_users_repository& banned_users_repository, std::shared_ptr<ikafka_producer<false>> producer);
         ~backend_login_handler() override = default;
 
         void handle_message(std::unique_ptr<message<false> const> const &msg) override;

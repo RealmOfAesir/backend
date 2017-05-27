@@ -18,19 +18,25 @@
 
 #include "backend_register_handler.h"
 #include <easylogging++.h>
-#include <messages/user_access_control/register_message.h>
 #include <messages/user_access_control/register_response_message.h>
+#include <messages/error_response_message.h>
 #include <sodium.h>
 
 using namespace std;
 using namespace roa;
 
-static inline register_response_message<false> create_message(uint32_t client_id, uint32_t server_id, int8_t admin_status, int error_no, string error_msg) {
+static inline register_response_message<false> create_message(uint64_t client_id, uint32_t server_id, int16_t admin_status) {
     return register_response_message<false>{
             {false, client_id, server_id, 0 /* ANY */},
-            admin_status,
+            admin_status
+    };
+}
+
+static inline error_response_message<false> create_error_message(uint64_t client_id, uint32_t server_id, int error_no, string error_str) {
+    return error_response_message<false>{
+            {false, client_id, server_id, 0 /* ANY */},
             error_no,
-            error_msg
+            error_str
     };
 }
 
@@ -48,7 +54,7 @@ void backend_register_handler::handle_message(unique_ptr<message<false> const> c
 
             if(banned_user) {
                 LOG(INFO) << "logging in user, but is banned";
-                this->_producer->enqueue_message(queue_name, create_message(msg->sender.client_id, _config.server_id, 0, -2, "You are banned"));
+                this->_producer->enqueue_message(queue_name, create_error_message(msg->sender.client_id, _config.server_id, -2, "You are banned"));
                 return;
             }
 
@@ -60,25 +66,25 @@ void backend_register_handler::handle_message(unique_ptr<message<false> const> c
                                  crypto_pwhash_OPSLIMIT_MODERATE,
                                  crypto_pwhash_MEMLIMIT_MODERATE) != 0) {
                 LOG(ERROR) << "Registering user, but out of memory";
-                this->_producer->enqueue_message(queue_name, create_message(msg->sender.client_id, _config.server_id, 0, -1, "Something went wrong"));
+                this->_producer->enqueue_message(queue_name, create_error_message(msg->sender.client_id, _config.server_id, -1, "Something went wrong"));
                 return;
             }
 
             user usr{0, register_msg->username, string(hashed_password), register_msg->email, 0};
             if(!_users_repository.insert_user_if_not_exists(usr, transaction)) {
                 LOG(DEBUG) << "Registering " << usr.username << " already exists";
-                this->_producer->enqueue_message(queue_name, create_message(msg->sender.client_id, _config.server_id, 0, -1, "User already exists"));
+                this->_producer->enqueue_message(queue_name, create_error_message(msg->sender.client_id, _config.server_id, -1, "User already exists"));
             } else {
                 LOG(DEBUG) << "Registered user " << usr.username;
-                this->_producer->enqueue_message(queue_name, create_message(msg->sender.client_id, _config.server_id, usr.admin, 0, ""));
+                this->_producer->enqueue_message(queue_name, create_message(msg->sender.client_id, _config.server_id, usr.admin));
             }
         } else {
             LOG(ERROR) << "Couldn't cast message to register_message";
-            this->_producer->enqueue_message(queue_name, create_message(msg->sender.client_id, _config.server_id, 0, -1, "Something went wrong"));
+            this->_producer->enqueue_message(queue_name, create_error_message(msg->sender.client_id, _config.server_id, -1, "Something went wrong"));
         }
     } catch (std::runtime_error const &e) {
         LOG(ERROR) << "error: " << typeid(e).name() << "-" << e.what();
-        this->_producer->enqueue_message(queue_name, create_message(msg->sender.client_id, _config.server_id, 0, -1, "Something went wrong"));
+        this->_producer->enqueue_message(queue_name, create_error_message(msg->sender.client_id, _config.server_id, -1, "Something went wrong"));
     }
 }
 

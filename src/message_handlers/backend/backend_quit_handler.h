@@ -25,7 +25,7 @@
 namespace roa {
     class backend_quit_handler : public imessage_handler<false> {
     public:
-        backend_quit_handler(std::atomic<bool> *quit);
+        explicit backend_quit_handler(std::atomic<bool> *quit);
         ~backend_quit_handler() override = default;
 
         void handle_message(std::unique_ptr<message<false> const> const &msg) override;

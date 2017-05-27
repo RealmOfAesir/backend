@@ -17,20 +17,26 @@
 */
 
 #include "backend_login_handler.h"
-#include <messages/user_access_control/login_message.h>
 #include <messages/user_access_control/login_response_message.h>
+#include <messages/error_response_message.h>
 #include <easylogging++.h>
 #include <sodium.h>
 
 using namespace std;
 using namespace roa;
 
-static inline login_response_message<false> create_message(uint32_t client_id, uint32_t server_id, int8_t admin_status, int error_no, string error_msg) {
+static inline login_response_message<false> create_message(uint64_t client_id, uint32_t server_id, int8_t admin_status) {
     return login_response_message<false>{
             {false, client_id, server_id, 0 /* ANY */},
-            admin_status,
+            admin_status
+    };
+}
+
+static inline error_response_message<false> create_error_message(uint64_t client_id, uint32_t server_id, int error_no, string error_str) {
+    return error_response_message<false>{
+            {false, client_id, server_id, 0 /* ANY */},
             error_no,
-            error_msg
+            error_str
     };
 }
 
@@ -48,38 +54,31 @@ void backend_login_handler::handle_message(unique_ptr<message<false> const> cons
 
             if(banned_user) {
                 LOG(INFO) << "logging in user, but is banned";
-                this->_producer->enqueue_message(queue_name, create_message(msg->sender.client_id, _config.server_id, 0, -2, "You are banned"));
+                this->_producer->enqueue_message(queue_name, create_error_message(msg->sender.client_id, _config.server_id, -2, "You are banned"));
                 return;
             }
-
-            char hashed_password[crypto_pwhash_STRBYTES];
-
-            if(crypto_pwhash_str(hashed_password,
-                                 login_msg->password.c_str(),
-                                 login_msg->password.length(),
-                                 crypto_pwhash_OPSLIMIT_MODERATE,
-                                 crypto_pwhash_MEMLIMIT_MODERATE) != 0) {
-                LOG(ERROR) << "logging in user, but out of memory";
-                this->_producer->enqueue_message(queue_name, create_message(msg->sender.client_id, _config.server_id, 0, -1, "Something went wrong"));
-                return;
-            }
-
 
             STD_OPTIONAL<user> usr = _users_repository.get_user(login_msg->username, transaction);
             if(!usr) {
                 LOG(DEBUG) << "Login " << login_msg->username << " doesn't exist";
-                this->_producer->enqueue_message(queue_name, create_message(msg->sender.client_id, _config.server_id, 0, -1, "User doesn't exist"));
+                this->_producer->enqueue_message(queue_name, create_error_message(msg->sender.client_id, _config.server_id, -1, "User doesn't exist"));
             } else {
+                if(crypto_pwhash_str_verify(usr->password.c_str(), login_msg->password.c_str(), login_msg->password.size()) != 0) {
+                    LOG(ERROR) << "logging in user, but wrong password";
+                    this->_producer->enqueue_message(queue_name, create_error_message(msg->sender.client_id, _config.server_id, -1, "Wrong combination of user + password"));
+                    return;
+                }
+
                 LOG(DEBUG) << "Login " << login_msg->username;
-                this->_producer->enqueue_message(queue_name, create_message(msg->sender.client_id, _config.server_id, usr->admin, 0, ""));
+                this->_producer->enqueue_message(queue_name, create_message(msg->sender.client_id, _config.server_id, usr->admin));
             }
         } else {
             LOG(ERROR) << "Couldn't cast message to login_message";
-            this->_producer->enqueue_message(queue_name, create_message(msg->sender.client_id, _config.server_id, 0, -1, "Something went wrong"));
+            this->_producer->enqueue_message(queue_name, create_error_message(msg->sender.client_id, _config.server_id, -1, "Something went wrong"));
         }
     } catch (std::runtime_error const &e) {
         LOG(ERROR) << "error: " << typeid(e).name() << "-" << e.what();
-        this->_producer->enqueue_message(queue_name, create_message(msg->sender.client_id, _config.server_id, 0, -1, "Something went wrong"));
+        this->_producer->enqueue_message(queue_name, create_error_message(msg->sender.client_id, _config.server_id, -1, "Something went wrong"));
     }
 }
 
