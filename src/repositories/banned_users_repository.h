@@ -79,7 +79,7 @@ namespace roa {
         banned_users_repository(banned_users_repository&& repo);
         ~banned_users_repository();
 
-        std::unique_ptr<idatabase_transaction> create_transaction() override;
+        auto create_transaction() -> decltype(repository::create_transaction()) override;
 
         void insert_banned_user(banned_user& usr, std::unique_ptr<idatabase_transaction> const &transaction) override;
         void update_banned_user(banned_user& usr, std::unique_ptr<idatabase_transaction> const &transaction) override;

@@ -36,11 +36,11 @@ banned_users_repository::banned_users_repository(idatabase_pool &database_pool) 
 
 }
 
-banned_users_repository::banned_users_repository(banned_users_repository &repo) : repository(repo._database_pool, unique_ptr<idatabase_connection>(repo._connection.release())) {
+banned_users_repository::banned_users_repository(banned_users_repository &repo) : repository(repo._database_pool) {
 
 }
 
-banned_users_repository::banned_users_repository(banned_users_repository &&repo) : repository(repo._database_pool, move(repo._connection)) {
+banned_users_repository::banned_users_repository(banned_users_repository &&repo) : repository(repo._database_pool) {
 
 }
 
@@ -48,7 +48,7 @@ banned_users_repository::~banned_users_repository() {
 
 }
 
-unique_ptr<idatabase_transaction> banned_users_repository::create_transaction() {
+auto banned_users_repository::create_transaction() -> decltype(repository::create_transaction()) {
     return repository::create_transaction();
 }
 

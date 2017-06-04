@@ -24,7 +24,7 @@ backend_quit_handler::backend_quit_handler(std::atomic<bool> *quit) : _quit(quit
 
 }
 
-void backend_quit_handler::handle_message(std::unique_ptr<message<false> const> const &msg) {
+void backend_quit_handler::handle_message(std::unique_ptr<binary_message const> const &msg) {
     *this->_quit = true;
 }
 

@@ -7,6 +7,7 @@ CREATE TABLE users (
     email citext NOT NULL,
     login_attempts SMALLINT NOT NULL DEFAULT 0,
     verification_code text DEFAULT NULL,
+    no_of_players SMALLINT NOT NULL DEFAULT 0,
     admin SMALLINT NOT NULL DEFAULT 0
 );
 

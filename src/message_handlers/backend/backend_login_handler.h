@@ -31,7 +31,7 @@ namespace roa {
         explicit backend_login_handler(Config config, iusers_repository& users_repository, ibanned_users_repository& banned_users_repository, std::shared_ptr<ikafka_producer<false>> producer);
         ~backend_login_handler() override = default;
 
-        void handle_message(std::unique_ptr<message<false> const> const &msg) override;
+        void handle_message(std::unique_ptr<binary_message const> const &msg) override;
 
         static constexpr uint32_t message_id = login_message<false>::id;
     private:

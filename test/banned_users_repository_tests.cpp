@@ -42,10 +42,10 @@ TEST_CASE("banned repository users tests") {
     SECTION( "banned user inserted correctly" ) {
         auto transaction = banned_user_repo.create_transaction();
         banned_user usr{0, "192.168.0.1"s, {}, chrono::system_clock::now() += chrono::seconds(10)};
-        banned_user_repo.insert_banned_user(usr, transaction);
+        banned_user_repo.insert_banned_user(usr, get<1>(transaction));
         REQUIRE(usr.id != 0);
 
-        auto usr2 = banned_user_repo.get_banned_user(usr.id, transaction);
+        auto usr2 = banned_user_repo.get_banned_user(usr.id, get<1>(transaction));
         REQUIRE(usr2);
         REQUIRE(usr2->id == usr.id);
         REQUIRE(usr2->ip == usr.ip);
@@ -61,15 +61,15 @@ TEST_CASE("banned repository users tests") {
     SECTION( "is user or ip banned" ) {
         auto transaction = banned_user_repo.create_transaction();
         user usr{0, "banned_user", "", "", 0, 0};
-        user_repo.insert_user_if_not_exists(usr, transaction);
+        user_repo.insert_user_if_not_exists(usr, get<1>(transaction));
         REQUIRE(usr.id > 0);
 
         banned_user banned_usr{0, "192.168.0.1"s, usr, chrono::system_clock::now() += chrono::seconds(10)};
-        banned_user_repo.insert_banned_user(banned_usr, transaction);
+        banned_user_repo.insert_banned_user(banned_usr, get<1>(transaction));
         REQUIRE(banned_usr.id != 0);
 
-        REQUIRE_THROWS_AS(banned_user_repo.is_username_or_ip_banned({}, {}, transaction), wrong_parameters_exception);
-        auto usr2 = banned_user_repo.is_username_or_ip_banned({"banned_user"s}, {}, transaction);
+        REQUIRE_THROWS_AS(banned_user_repo.is_username_or_ip_banned({}, {}, get<1>(transaction)), wrong_parameters_exception);
+        auto usr2 = banned_user_repo.is_username_or_ip_banned({"banned_user"s}, {}, get<1>(transaction));
         REQUIRE(usr2);
         REQUIRE(usr2->id == banned_usr.id);
         REQUIRE(usr2->ip == banned_usr.ip);
@@ -81,7 +81,7 @@ TEST_CASE("banned repository users tests") {
 
         REQUIRE(time1 == time2);
 
-        usr2 = banned_user_repo.is_username_or_ip_banned({}, {"192.168.0.1"}, transaction);
+        usr2 = banned_user_repo.is_username_or_ip_banned({}, {"192.168.0.1"}, get<1>(transaction));
         REQUIRE(usr2);
         REQUIRE(usr2->id == banned_usr.id);
         REQUIRE(usr2->ip == banned_usr.ip);
@@ -93,7 +93,7 @@ TEST_CASE("banned repository users tests") {
 
         REQUIRE(time1 == time2);
 
-        usr2 = banned_user_repo.is_username_or_ip_banned({"banned_user"}, {"192.168.0.1"}, transaction);
+        usr2 = banned_user_repo.is_username_or_ip_banned({"banned_user"}, {"192.168.0.1"}, get<1>(transaction));
         REQUIRE(usr2);
         REQUIRE(usr2->id == banned_usr.id);
         REQUIRE(usr2->ip == banned_usr.ip);
@@ -109,37 +109,37 @@ TEST_CASE("banned repository users tests") {
     SECTION( "user or ip was banned" ) {
         auto transaction = banned_user_repo.create_transaction();
         user usr{0, "banned_user", "", "", 0, 0};
-        user_repo.insert_user_if_not_exists(usr, transaction);
+        user_repo.insert_user_if_not_exists(usr, get<1>(transaction));
         REQUIRE(usr.id > 0);
 
         banned_user banned_usr{0, "192.168.0.1"s, usr, chrono::system_clock::now() -= chrono::hours(5)};
-        banned_user_repo.insert_banned_user(banned_usr, transaction);
+        banned_user_repo.insert_banned_user(banned_usr, get<1>(transaction));
         REQUIRE(banned_usr.id != 0);
 
-        auto usr2 = banned_user_repo.is_username_or_ip_banned({"banned_user"s}, {}, transaction);
+        auto usr2 = banned_user_repo.is_username_or_ip_banned({"banned_user"s}, {}, get<1>(transaction));
         REQUIRE(!usr2);
 
-        usr2 = banned_user_repo.is_username_or_ip_banned({}, {"192.168.0.1"}, transaction);
+        usr2 = banned_user_repo.is_username_or_ip_banned({}, {"192.168.0.1"}, get<1>(transaction));
         REQUIRE(!usr2);
 
-        usr2 = banned_user_repo.is_username_or_ip_banned({"banned_user"}, {"192.168.0.1"}, transaction);
+        usr2 = banned_user_repo.is_username_or_ip_banned({"banned_user"}, {"192.168.0.1"}, get<1>(transaction));
         REQUIRE(!usr2);
     }
 
     SECTION( "update banned_user" ) {
         auto transaction = banned_user_repo.create_transaction();
         user usr{0, "banned_user", "", "", 0, 0};
-        user_repo.insert_user_if_not_exists(usr, transaction);
+        user_repo.insert_user_if_not_exists(usr, get<1>(transaction));
         REQUIRE(usr.id > 0);
 
         banned_user banned_usr{0, "192.168.0.1"s, {}, chrono::system_clock::now() += chrono::seconds(10)};
-        banned_user_repo.insert_banned_user(banned_usr, transaction);
+        banned_user_repo.insert_banned_user(banned_usr, get<1>(transaction));
         REQUIRE(banned_usr.id != 0);
 
         banned_usr._user = usr;
-        banned_user_repo.update_banned_user(banned_usr, transaction);
+        banned_user_repo.update_banned_user(banned_usr, get<1>(transaction));
 
-        auto usr2 = banned_user_repo.is_username_or_ip_banned({"banned_user"s}, {}, transaction);
+        auto usr2 = banned_user_repo.is_username_or_ip_banned({"banned_user"s}, {}, get<1>(transaction));
         REQUIRE(usr2);
         REQUIRE(usr2->id == banned_usr.id);
         REQUIRE(usr2->ip == banned_usr.ip);

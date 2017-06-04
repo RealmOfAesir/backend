@@ -38,11 +38,11 @@ TEST_CASE("user repository tests") {
     users_repository user_repo = backend_injector.create<users_repository>();
     SECTION( "user inserted correctly" ) {
         auto transaction = user_repo.create_transaction();
-        user usr{0, "user"s, "pass"s, "email"s, 2, 3};
-        user_repo.insert_user_if_not_exists(usr, transaction);
+        user usr{0, "user"s, "pass"s, "email"s, 2, 3, 4};
+        user_repo.insert_user_if_not_exists(usr, get<1>(transaction));
         REQUIRE(usr.id != 0);
 
-        auto usr2 = user_repo.get_user(usr.id, transaction);
+        auto usr2 = user_repo.get_user(usr.id, get<1>(transaction));
         REQUIRE(usr2);
         REQUIRE(usr2->id == usr.id);
         REQUIRE(usr2->username == usr.username);
@@ -50,16 +50,17 @@ TEST_CASE("user repository tests") {
         REQUIRE(usr2->email == usr.email);
         REQUIRE(usr2->login_attempts == usr.login_attempts);
         REQUIRE(usr2->admin == usr.admin);
+        REQUIRE(usr2->no_of_players == usr.no_of_players);
 
         uint64_t old_id = usr.id;
-        user_repo.insert_user_if_not_exists(usr, transaction);
+        user_repo.insert_user_if_not_exists(usr, get<1>(transaction));
         REQUIRE(usr.id == old_id);
     }
 
     SECTION( "update user" ) {
         auto transaction = user_repo.create_transaction();
-        user usr{0, "user"s, "pass"s, "email"s, 2, 3};
-        user_repo.insert_user_if_not_exists(usr, transaction);
+        user usr{0, "user"s, "pass"s, "email"s, 2, 3, 4};
+        user_repo.insert_user_if_not_exists(usr, get<1>(transaction));
         REQUIRE(usr.id != 0);
 
         usr.username = "user2";
@@ -67,9 +68,10 @@ TEST_CASE("user repository tests") {
         usr.email = "email2";
         usr.login_attempts = 5;
         usr.admin = 6;
-        user_repo.update_user(usr, transaction);
+        usr.no_of_players = 7;
+        user_repo.update_user(usr, get<1>(transaction));
 
-        auto usr2 = user_repo.get_user(usr.username, transaction);
+        auto usr2 = user_repo.get_user(usr.username, get<1>(transaction));
         REQUIRE(usr2);
         REQUIRE(usr2->id == usr.id);
         REQUIRE(usr2->username == usr.username);
@@ -77,5 +79,6 @@ TEST_CASE("user repository tests") {
         REQUIRE(usr2->email == usr.email);
         REQUIRE(usr2->login_attempts == usr.login_attempts);
         REQUIRE(usr2->admin == usr.admin);
+        REQUIRE(usr2->no_of_players == usr.no_of_players);
     }
 }

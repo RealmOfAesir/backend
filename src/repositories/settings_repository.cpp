@@ -33,11 +33,11 @@ settings_repository::settings_repository(idatabase_pool& database_pool) : reposi
 
 }
 
-settings_repository::settings_repository(settings_repository &repo) : repository(repo._database_pool, unique_ptr<idatabase_connection>(repo._connection.release())) {
+settings_repository::settings_repository(settings_repository &repo) : repository(repo._database_pool) {
 
 }
 
-settings_repository::settings_repository(settings_repository &&repo) : repository(repo._database_pool, move(repo._connection)) {
+settings_repository::settings_repository(settings_repository &&repo) : repository(repo._database_pool) {
 
 }
 
@@ -45,7 +45,7 @@ settings_repository::~settings_repository() {
 
 }
 
-unique_ptr<idatabase_transaction> settings_repository::create_transaction() {
+auto settings_repository::create_transaction() -> decltype(repository::create_transaction()) {
     return repository::create_transaction();
 }
 
@@ -53,12 +53,10 @@ bool settings_repository::insert_or_update_setting(setting &sett,
                                                    std::unique_ptr<idatabase_transaction> const &transaction) {
     auto result = transaction->execute(
             "INSERT INTO settings (\"name\", value) VALUES ('" + transaction->escape(sett.name) +
-            "', '" + transaction->escape(sett.value) + "') ON CONFLICT (\"name\") DO UPDATE SET \"name\" = '" +
-            transaction->escape(sett.name) + "', value = '" + transaction->escape(sett.value) + "'");
+            "', '" + transaction->escape(sett.value) + "') ON CONFLICT (\"name\") DO UPDATE SET"
+                    " value = '" + transaction->escape(sett.value) + "' RETURNING xmax");
 
-
-
-    return false;
+    return result[0]["xmax"].as<string>() == "0";
 }
 
 STD_OPTIONAL<setting>

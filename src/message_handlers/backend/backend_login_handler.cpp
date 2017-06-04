@@ -25,15 +25,15 @@
 using namespace std;
 using namespace roa;
 
-static inline login_response_message<false> create_message(uint64_t client_id, uint32_t server_id, int8_t admin_status) {
-    return login_response_message<false>{
+static inline binary_login_response_message create_message(uint64_t client_id, uint32_t server_id, int8_t admin_status) {
+    return binary_login_response_message {
             {false, client_id, server_id, 0 /* ANY */},
             admin_status
     };
 }
 
-static inline error_response_message<false> create_error_message(uint64_t client_id, uint32_t server_id, int error_no, string error_str) {
-    return error_response_message<false>{
+static inline binary_error_response_message create_error_message(uint64_t client_id, uint32_t server_id, int error_no, string error_str) {
+    return binary_error_response_message {
             {false, client_id, server_id, 0 /* ANY */},
             error_no,
             error_str
@@ -45,12 +45,13 @@ backend_login_handler::backend_login_handler(Config config, iusers_repository &u
 
 }
 
-void backend_login_handler::handle_message(unique_ptr<message<false> const> const &msg) {
+void backend_login_handler::handle_message(unique_ptr<binary_message const> const &msg) {
     string queue_name = "server-" + to_string(msg->sender.server_origin_id);
     try {
-        if (auto login_msg = dynamic_cast<login_message<false> const *>(msg.get())) {
+        if (auto casted_msg = dynamic_cast<binary_login_message const *>(msg.get())) {
+            LOG(ERROR) << "transaction?";
             auto transaction = _users_repository.create_transaction();
-            auto banned_user = _banned_users_repository.is_username_or_ip_banned(login_msg->username, login_msg->ip, transaction);
+            auto banned_user = _banned_users_repository.is_username_or_ip_banned(casted_msg->username, casted_msg->ip, get<1>(transaction));
 
             if(banned_user) {
                 LOG(INFO) << "logging in user, but is banned";
@@ -58,18 +59,18 @@ void backend_login_handler::handle_message(unique_ptr<message<false> const> cons
                 return;
             }
 
-            STD_OPTIONAL<user> usr = _users_repository.get_user(login_msg->username, transaction);
+            STD_OPTIONAL<user> usr = _users_repository.get_user(casted_msg->username, get<1>(transaction));
             if(!usr) {
-                LOG(DEBUG) << "Login " << login_msg->username << " doesn't exist";
+                LOG(DEBUG) << "Login " << casted_msg->username << " doesn't exist";
                 this->_producer->enqueue_message(queue_name, create_error_message(msg->sender.client_id, _config.server_id, -1, "User doesn't exist"));
             } else {
-                if(crypto_pwhash_str_verify(usr->password.c_str(), login_msg->password.c_str(), login_msg->password.size()) != 0) {
+                if(crypto_pwhash_str_verify(usr->password.c_str(), casted_msg->password.c_str(), casted_msg->password.size()) != 0) {
                     LOG(ERROR) << "logging in user, but wrong password";
                     this->_producer->enqueue_message(queue_name, create_error_message(msg->sender.client_id, _config.server_id, -1, "Wrong combination of user + password"));
                     return;
                 }
 
-                LOG(DEBUG) << "Login " << login_msg->username;
+                LOG(DEBUG) << "Login " << casted_msg->username;
                 this->_producer->enqueue_message(queue_name, create_message(msg->sender.client_id, _config.server_id, usr->admin));
             }
         } else {

@@ -30,6 +30,7 @@ namespace roa {
         std::string email;
         int16_t login_attempts;
         int16_t admin;
+        int16_t no_of_players;
     };
 
     class iusers_repository : public irepository {
@@ -77,7 +78,7 @@ namespace roa {
         users_repository(users_repository &&repo);
         ~users_repository();
 
-        std::unique_ptr<idatabase_transaction> create_transaction() override;
+        auto create_transaction() -> decltype(repository::create_transaction()) override;
 
         bool insert_user_if_not_exists(user& usr, std::unique_ptr<idatabase_transaction> const &transaction) override;
         void update_user(user const & usr, std::unique_ptr<idatabase_transaction> const &transaction) override;

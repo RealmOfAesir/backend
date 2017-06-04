@@ -25,15 +25,15 @@
 using namespace std;
 using namespace roa;
 
-static inline register_response_message<false> create_message(uint64_t client_id, uint32_t server_id, int16_t admin_status) {
-    return register_response_message<false>{
+static inline binary_register_response_message create_message(uint64_t client_id, uint32_t server_id, int16_t admin_status) {
+    return binary_register_response_message {
             {false, client_id, server_id, 0 /* ANY */},
             admin_status
     };
 }
 
-static inline error_response_message<false> create_error_message(uint64_t client_id, uint32_t server_id, int error_no, string error_str) {
-    return error_response_message<false>{
+static inline binary_error_response_message create_error_message(uint64_t client_id, uint32_t server_id, int error_no, string error_str) {
+    return binary_error_response_message {
             {false, client_id, server_id, 0 /* ANY */},
             error_no,
             error_str
@@ -45,12 +45,12 @@ backend_register_handler::backend_register_handler(Config config, iusers_reposit
 
 }
 
-void backend_register_handler::handle_message(unique_ptr<message<false> const> const &msg) {
+void backend_register_handler::handle_message(unique_ptr<binary_message const> const &msg) {
     string queue_name = "server-" + to_string(msg->sender.server_origin_id);
     try {
-        if (auto register_msg = dynamic_cast<register_message<false> const *>(msg.get())) {
+        if (auto casted_msg = dynamic_cast<binary_register_message const *>(msg.get())) {
             auto transaction = _users_repository.create_transaction();
-            auto banned_user = _banned_users_repository.is_username_or_ip_banned(register_msg->username, register_msg->ip, transaction);
+            auto banned_user = _banned_users_repository.is_username_or_ip_banned(casted_msg->username, casted_msg->ip, get<1>(transaction));
 
             if(banned_user) {
                 LOG(INFO) << "logging in user, but is banned";
@@ -61,8 +61,8 @@ void backend_register_handler::handle_message(unique_ptr<message<false> const> c
             char hashed_password[crypto_pwhash_STRBYTES];
 
             if(crypto_pwhash_str(hashed_password,
-                                 register_msg->password.c_str(),
-                                 register_msg->password.length(),
+                                 casted_msg->password.c_str(),
+                                 casted_msg->password.length(),
                                  crypto_pwhash_OPSLIMIT_MODERATE,
                                  crypto_pwhash_MEMLIMIT_MODERATE) != 0) {
                 LOG(ERROR) << "Registering user, but out of memory";
@@ -70,8 +70,8 @@ void backend_register_handler::handle_message(unique_ptr<message<false> const> c
                 return;
             }
 
-            user usr{0, register_msg->username, string(hashed_password), register_msg->email, 0};
-            if(!_users_repository.insert_user_if_not_exists(usr, transaction)) {
+            user usr{0, casted_msg->username, string(hashed_password), casted_msg->email, 0};
+            if(!_users_repository.insert_user_if_not_exists(usr, get<1>(transaction))) {
                 LOG(DEBUG) << "Registering " << usr.username << " already exists";
                 this->_producer->enqueue_message(queue_name, create_error_message(msg->sender.client_id, _config.server_id, -1, "User already exists"));
             } else {
