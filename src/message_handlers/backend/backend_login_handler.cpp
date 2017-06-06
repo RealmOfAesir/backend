@@ -25,10 +25,11 @@
 using namespace std;
 using namespace roa;
 
-static inline binary_login_response_message create_message(uint64_t client_id, uint32_t server_id, int8_t admin_status) {
+static inline binary_login_response_message create_message(uint64_t client_id, uint32_t server_id, int8_t admin_status, uint64_t user_id) {
     return binary_login_response_message {
             {false, client_id, server_id, 0 /* ANY */},
-            admin_status
+            admin_status,
+            user_id
     };
 }
 
@@ -71,7 +72,7 @@ void backend_login_handler::handle_message(unique_ptr<binary_message const> cons
                 }
 
                 LOG(DEBUG) << "Login " << casted_msg->username;
-                this->_producer->enqueue_message(queue_name, create_message(msg->sender.client_id, _config.server_id, usr->admin));
+                this->_producer->enqueue_message(queue_name, create_message(msg->sender.client_id, _config.server_id, usr->admin, usr->id));
             }
         } else {
             LOG(ERROR) << "Couldn't cast message to login_message";
