@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5.0 FATAL_ERROR)
-project(RealmOfAesir)
+project(RealmOfAesirBackend)
 #set(CMAKE_CXX_STANDARD 17) #not supported yet :(
 #set(CMAKE CXX STANDARD REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
