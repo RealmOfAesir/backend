@@ -67,7 +67,7 @@ void backend_create_character_handler::handle_message(unique_ptr<binary_message 
                 return;
             }
 
-            if(stoi(world_setting->value) >= usr->no_of_players) {
+            if(stoi(world_setting->value) <= usr->no_of_players) {
                 LOG(ERROR) << NAMEOF(backend_create_character_handler::handle_message) << " user " << casted_msg->user_id << " has too many players";
                 this->_producer->enqueue_message(queue_name, create_error_message(msg->sender.client_id, _config.server_id, -1, "You already have too many players. Max: " + world_setting->value));
                 return;
