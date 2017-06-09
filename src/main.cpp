@@ -184,6 +184,55 @@ bool check_entropy() {
 }
 #endif
 
+unique_ptr<thread> create_consumer_thread(Config config, shared_ptr<ikafka_consumer<false>> consumer, shared_ptr<ikafka_producer<false>> producer) {
+    if (!consumer) {
+        LOG(ERROR) << NAMEOF(create_consumer_thread) << " one of the arguments are null";
+        throw runtime_error("[main:consumer] one of the arguments are null");
+    }
+
+    return make_unique<thread>([=] {
+        LOG(INFO) << NAMEOF(create_consumer_thread) << " starting consumer thread";
+
+        database_pool db_pool;
+        db_pool.create_connections(config.connection_string, 2);
+        auto backend_injector = boost::di::make_injector(
+                boost::di::bind<idatabase_transaction>.to<database_transaction>(),
+                boost::di::bind<idatabase_connection>.to<database_connection>(),
+                boost::di::bind<idatabase_pool>.to(db_pool),
+                boost::di::bind<iusers_repository>.to<users_repository>(),
+                boost::di::bind<ibanned_users_repository>.to<banned_users_repository>(),
+                boost::di::bind<isettings_repository>.to<settings_repository>());
+
+        auto users_repo = backend_injector.create<users_repository>();
+        auto banned_users_repo = backend_injector.create<banned_users_repository>();
+        auto settings_repo = backend_injector.create<settings_repository>();
+
+        message_dispatcher<false> backend_server_msg_dispatcher;
+
+        backend_server_msg_dispatcher.register_handler<backend_quit_handler>(&quit);
+        backend_server_msg_dispatcher.register_handler<backend_register_handler, Config, iusers_repository&, ibanned_users_repository&, shared_ptr<ikafka_producer<false>>>(config, users_repo, banned_users_repo, producer);
+        backend_server_msg_dispatcher.register_handler<backend_login_handler, Config, iusers_repository&, ibanned_users_repository&, shared_ptr<ikafka_producer<false>>>(config, users_repo, banned_users_repo, producer);
+        backend_server_msg_dispatcher.register_handler<backend_create_character_handler, Config, iusers_repository&, isettings_repository&, shared_ptr<ikafka_producer<false>>>(config, users_repo, settings_repo, producer);
+
+        consumer->start(config.broker_list, config.group_id, std::vector<std::string>{"server-" + to_string(config.server_id), "backend_messages", "broadcast"});
+
+        LOG(INFO) << NAMEOF(create_consumer_thread) << " started consumer thread";
+
+        while (!quit) {
+            try {
+                auto msg = consumer->try_get_message(10);
+                if (get<1>(msg)) {
+                    backend_server_msg_dispatcher.trigger_handler(msg);
+                }
+            } catch (serialization_exception &e) {
+                LOG(INFO) << NAMEOF(create_consumer_thread) << " received exception " << e.what();
+            }
+        }
+
+        consumer->close();
+    });
+}
+
 int main() {
     Config config;
     try {
@@ -211,56 +260,31 @@ int main() {
         return 1;
     }
 
-    database_pool db_pool;
-    db_pool.create_connections(config.connection_string, 2);
     auto common_injector = create_common_di_injector();
-    auto backend_injector = boost::di::make_injector(
-        boost::di::bind<idatabase_transaction>.to<database_transaction>(),
-        boost::di::bind<idatabase_connection>.to<database_connection>(),
-        boost::di::bind<idatabase_pool>.to(db_pool),
-        boost::di::bind<iusers_repository>.to<users_repository>(),
-        boost::di::bind<ibanned_users_repository>.to<banned_users_repository>(),
-        boost::di::bind<isettings_repository>.to<settings_repository>());
-
     auto producer = common_injector.create<shared_ptr<ikafka_producer<false>>>();
-    auto backend_consumer = common_injector.create<shared_ptr<ikafka_consumer<false>>>();
-    auto users_repo = backend_injector.create<users_repository>();
-    auto banned_users_repo = backend_injector.create<banned_users_repository>();
-    auto settings_repo = backend_injector.create<settings_repository>();
-    backend_consumer->start(config.broker_list, config.group_id, std::vector<std::string>{"server-" + to_string(config.server_id), "backend_messages", "broadcast"});
+    auto consumer = common_injector.create<shared_ptr<ikafka_consumer<false>>>();
+
     producer->start(config.broker_list);
 
-
     try {
-        message_dispatcher<false> backend_server_msg_dispatcher;
-
-        backend_server_msg_dispatcher.register_handler<backend_quit_handler>(&quit);
-        backend_server_msg_dispatcher.register_handler<backend_register_handler, Config, iusers_repository&, ibanned_users_repository&, shared_ptr<ikafka_producer<false>>>(config, users_repo, banned_users_repo, producer);
-        backend_server_msg_dispatcher.register_handler<backend_login_handler, Config, iusers_repository&, ibanned_users_repository&, shared_ptr<ikafka_producer<false>>>(config, users_repo, banned_users_repo, producer);
-        backend_server_msg_dispatcher.register_handler<backend_create_character_handler, Config, iusers_repository&, isettings_repository&, shared_ptr<ikafka_producer<false>>>(config, users_repo, settings_repo, producer);
-
         LOG(INFO) << "[main] starting main thread";
 
-        while (!quit) {
-            try {
-                producer->poll(10);
-                auto msg = backend_consumer->try_get_message(10);
-                if (get<1>(msg)) {
+        auto consumer_thread = create_consumer_thread(config, consumer, producer);
 
-                    backend_server_msg_dispatcher.trigger_handler(msg);
-                }
-            } catch (serialization_exception &e) {
-                cout << "[main] received exception " << e.what() << endl;
-            }
+        while (!quit) {
+            producer->poll(50);
         }
 
         LOG(INFO) << "[main] closing";
 
         producer->close();
-        backend_consumer->close();
+        consumer_thread->join();
+
     } catch (const runtime_error& e) {
         LOG(ERROR) << "[main] error: " << typeid(e).name() << "-" << e.what();
     }
+
+    LOG(INFO) << "[main] closed";
 
     return 0;
 }
