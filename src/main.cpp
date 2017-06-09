@@ -214,7 +214,7 @@ unique_ptr<thread> create_consumer_thread(Config config, shared_ptr<ikafka_consu
         backend_server_msg_dispatcher.register_handler<backend_login_handler, Config, iusers_repository&, ibanned_users_repository&, shared_ptr<ikafka_producer<false>>>(config, users_repo, banned_users_repo, producer);
         backend_server_msg_dispatcher.register_handler<backend_create_character_handler, Config, iusers_repository&, isettings_repository&, shared_ptr<ikafka_producer<false>>>(config, users_repo, settings_repo, producer);
 
-        consumer->start(config.broker_list, config.group_id, std::vector<std::string>{"server-" + to_string(config.server_id), "backend_messages", "broadcast"});
+        consumer->start(config.broker_list, config.group_id, std::vector<std::string>{"server-" + to_string(config.server_id), "backend_messages", "broadcast"}, 50);
 
         LOG(INFO) << NAMEOF(create_consumer_thread) << " started consumer thread";
 
@@ -264,7 +264,7 @@ int main() {
     auto producer = common_injector.create<shared_ptr<ikafka_producer<false>>>();
     auto consumer = common_injector.create<shared_ptr<ikafka_consumer<false>>>();
 
-    producer->start(config.broker_list);
+    producer->start(config.broker_list, 50);
 
     try {
         LOG(INFO) << "[main] starting main thread";
