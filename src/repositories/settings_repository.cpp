@@ -52,8 +52,8 @@ auto settings_repository::create_transaction() -> decltype(repository::create_tr
 bool settings_repository::insert_or_update_setting(setting &sett,
                                                    std::unique_ptr<idatabase_transaction> const &transaction) {
     auto result = transaction->execute(
-            "INSERT INTO settings (\"name\", value) VALUES ('" + transaction->escape(sett.name) +
-            "', '" + transaction->escape(sett.value) + "') ON CONFLICT (\"name\") DO UPDATE SET"
+            "INSERT INTO settings (setting_name, value) VALUES ('" + transaction->escape(sett.name) +
+            "', '" + transaction->escape(sett.value) + "') ON CONFLICT (setting_name) DO UPDATE SET"
                     " value = '" + transaction->escape(sett.value) + "' RETURNING xmax");
 
     return result[0]["xmax"].as<string>() == "0";
@@ -61,7 +61,7 @@ bool settings_repository::insert_or_update_setting(setting &sett,
 
 STD_OPTIONAL<setting>
 settings_repository::get_setting(std::string const &name, std::unique_ptr<idatabase_transaction> const &transaction) {
-    auto result = transaction->execute("SELECT * FROM settings WHERE \"name\" = '" + transaction->escape(name) + "'");
+    auto result = transaction->execute("SELECT * FROM settings WHERE setting_name = '" + transaction->escape(name) + "'");
 
     LOG(DEBUG) << NAMEOF(settings_repository::get_setting) << " contains " << result.size() << " entries";
 
@@ -69,5 +69,5 @@ settings_repository::get_setting(std::string const &name, std::unique_ptr<idatab
         return {};
     }
 
-    return make_optional<setting>({result[0]["name"].as<string>(), result[0]["value"].as<string>()});
+    return make_optional<setting>({result[0]["setting_name"].as<string>(), result[0]["value"].as<string>()});
 }
