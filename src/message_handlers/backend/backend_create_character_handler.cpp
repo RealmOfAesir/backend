@@ -58,25 +58,25 @@ void backend_create_character_handler::handle_message(unique_ptr<binary_message 
 
 
             if(!usr) {
-                LOG(ERROR) << NAMEOF(backend_create_character_handler::handle_message) << " Couldn't find user_id " << casted_msg->user_id;
+                LOG(ERROR) << NAMEOF(backend_create_character_handler::handle_message) << " Couldn't find user_id " << casted_msg->user_id << " - queue: " << gateway_queue;
                 this->_producer->enqueue_message(gateway_queue, create_error_message(msg->sender.client_id, _config.server_id, -1, "Something went wrong."));
                 return;
             }
 
             if(!max_characters) {
-                LOG(ERROR) << NAMEOF(backend_create_character_handler::handle_message) << " Couldn't find max_characters";
+                LOG(ERROR) << NAMEOF(backend_create_character_handler::handle_message) << " Couldn't find max_characters - queue: " << gateway_queue;
                 this->_producer->enqueue_message(gateway_queue, create_error_message(msg->sender.client_id, _config.server_id, -1, "Something went wrong."));
                 return;
             }
 
             if(!world_id) {
-                LOG(ERROR) << NAMEOF(backend_create_character_handler::handle_message) << " Couldn't find world_id";
+                LOG(ERROR) << NAMEOF(backend_create_character_handler::handle_message) << " Couldn't find world_id - queue: " << gateway_queue;
                 this->_producer->enqueue_message(gateway_queue, create_error_message(msg->sender.client_id, _config.server_id, -1, "Something went wrong."));
                 return;
             }
 
             if(stoi(max_characters->value) <= usr->no_of_players) {
-                LOG(ERROR) << NAMEOF(backend_create_character_handler::handle_message) << " user " << casted_msg->user_id << " has too many players";
+                LOG(ERROR) << NAMEOF(backend_create_character_handler::handle_message) << " user " << casted_msg->user_id << " has too many players - queue: " << gateway_queue;
                 this->_producer->enqueue_message(gateway_queue, create_error_message(msg->sender.client_id, _config.server_id, -1, "You already have too many players. Max: " + max_characters->value));
                 return;
             }
@@ -87,13 +87,15 @@ void backend_create_character_handler::handle_message(unique_ptr<binary_message 
 
             get<1>(transaction)->commit();
 
+            LOG(INFO) << NAMEOF(backend_create_character_handler::handle_message) << " sending create character message to queue: " << world_queue;
+
             this->_producer->enqueue_message(world_queue, create_message(msg->sender.client_id, _config.server_id, casted_msg->sender.server_origin_id, casted_msg->user_id, casted_msg->player_name));
         } else {
-            LOG(ERROR) << NAMEOF(backend_create_character_handler::handle_message) << " Couldn't cast message to create_character_message";
+            LOG(ERROR) << NAMEOF(backend_create_character_handler::handle_message) << " Couldn't cast message to create_character_message - queue: " << gateway_queue;
             this->_producer->enqueue_message(gateway_queue, create_error_message(msg->sender.client_id, _config.server_id, -1, "Something went wrong."));
         }
     } catch (std::runtime_error const &e) {
-        LOG(ERROR) << NAMEOF(backend_create_character_handler::handle_message) << " error: " << typeid(e).name() << "-" << e.what();
+        LOG(ERROR) << NAMEOF(backend_create_character_handler::handle_message) << " error: " << typeid(e).name() << "-" << e.what() << " - queue: " << gateway_queue;
         this->_producer->enqueue_message(gateway_queue, create_error_message(msg->sender.client_id, _config.server_id, -1, "Something went wrong."));
     }
 }

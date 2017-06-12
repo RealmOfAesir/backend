@@ -21,6 +21,7 @@
 #include <messages/error_response_message.h>
 #include <easylogging++.h>
 #include <sodium.h>
+#include <macros.h>
 
 using namespace std;
 using namespace roa;
@@ -50,36 +51,35 @@ void backend_login_handler::handle_message(unique_ptr<binary_message const> cons
     string queue_name = "server-" + to_string(msg->sender.server_origin_id);
     try {
         if (auto casted_msg = dynamic_cast<binary_login_message const *>(msg.get())) {
-            LOG(ERROR) << "transaction?";
             auto transaction = _users_repository.create_transaction();
             auto banned_user = _banned_users_repository.is_username_or_ip_banned(casted_msg->username, casted_msg->ip, get<1>(transaction));
 
             if(banned_user) {
-                LOG(INFO) << "logging in user, but is banned";
+                LOG(INFO) << NAMEOF(backend_login_handler::handle_message) << " logging in user, but is banned - queue: " << queue_name;
                 this->_producer->enqueue_message(queue_name, create_error_message(msg->sender.client_id, _config.server_id, -2, "You are banned"));
                 return;
             }
 
             STD_OPTIONAL<user> usr = _users_repository.get_user(casted_msg->username, get<1>(transaction));
             if(!usr) {
-                LOG(DEBUG) << "Login " << casted_msg->username << " doesn't exist";
+                LOG(DEBUG) << NAMEOF(backend_login_handler::handle_message) << " Login " << casted_msg->username << " doesn't exist - queue: " << queue_name;
                 this->_producer->enqueue_message(queue_name, create_error_message(msg->sender.client_id, _config.server_id, -1, "User doesn't exist"));
             } else {
                 if(crypto_pwhash_str_verify(usr->password.c_str(), casted_msg->password.c_str(), casted_msg->password.size()) != 0) {
-                    LOG(ERROR) << "logging in user, but wrong password";
+                    LOG(ERROR) << NAMEOF(backend_login_handler::handle_message) << " logging in user, but wrong password - queue: " << queue_name;
                     this->_producer->enqueue_message(queue_name, create_error_message(msg->sender.client_id, _config.server_id, -1, "Wrong combination of user + password"));
                     return;
                 }
 
-                LOG(DEBUG) << "Login " << casted_msg->username;
+                LOG(DEBUG) << NAMEOF(backend_login_handler::handle_message) << " Login " << casted_msg->username << " - queue: " << queue_name;
                 this->_producer->enqueue_message(queue_name, create_message(msg->sender.client_id, _config.server_id, usr->admin, usr->id));
             }
         } else {
-            LOG(ERROR) << "Couldn't cast message to login_message";
+            LOG(ERROR) << NAMEOF(backend_login_handler::handle_message) << " Couldn't cast message to login_message - queue: " << queue_name;
             this->_producer->enqueue_message(queue_name, create_error_message(msg->sender.client_id, _config.server_id, -1, "Something went wrong"));
         }
     } catch (std::runtime_error const &e) {
-        LOG(ERROR) << "error: " << typeid(e).name() << "-" << e.what();
+        LOG(ERROR) << NAMEOF(backend_login_handler::handle_message) << " error: " << typeid(e).name() << "-" << e.what() << " - queue: " << queue_name;
         this->_producer->enqueue_message(queue_name, create_error_message(msg->sender.client_id, _config.server_id, -1, "Something went wrong"));
     }
 }

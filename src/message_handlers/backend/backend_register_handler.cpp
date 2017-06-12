@@ -21,6 +21,7 @@
 #include <messages/user_access_control/register_response_message.h>
 #include <messages/error_response_message.h>
 #include <sodium.h>
+#include <macros.h>
 
 using namespace std;
 using namespace roa;
@@ -54,7 +55,7 @@ void backend_register_handler::handle_message(unique_ptr<binary_message const> c
             auto banned_user = _banned_users_repository.is_username_or_ip_banned(casted_msg->username, casted_msg->ip, get<1>(transaction));
 
             if(banned_user) {
-                LOG(INFO) << "logging in user, but is banned";
+                LOG(INFO) << NAMEOF(backend_register_handler::handle_message) << " registering user, but is banned - queue: " << queue_name;
                 this->_producer->enqueue_message(queue_name, create_error_message(msg->sender.client_id, _config.server_id, -2, "You are banned"));
                 return;
             }
@@ -66,25 +67,25 @@ void backend_register_handler::handle_message(unique_ptr<binary_message const> c
                                  casted_msg->password.length(),
                                  crypto_pwhash_OPSLIMIT_MODERATE,
                                  crypto_pwhash_MEMLIMIT_MODERATE) != 0) {
-                LOG(ERROR) << "Registering user, but out of memory";
+                LOG(ERROR) << NAMEOF(backend_register_handler::handle_message) << " Registering user, but out of memory - queue: " << queue_name;
                 this->_producer->enqueue_message(queue_name, create_error_message(msg->sender.client_id, _config.server_id, -1, "Something went wrong"));
                 return;
             }
 
             user usr{0, casted_msg->username, string(hashed_password), casted_msg->email, 0};
             if(!_users_repository.insert_user_if_not_exists(usr, get<1>(transaction))) {
-                LOG(DEBUG) << "Registering " << usr.username << " already exists";
+                LOG(DEBUG) << NAMEOF(backend_register_handler::handle_message) << " Registering " << usr.username << " already exists - queue: " << queue_name;
                 this->_producer->enqueue_message(queue_name, create_error_message(msg->sender.client_id, _config.server_id, -1, "User already exists"));
             } else {
-                LOG(DEBUG) << "Registered user " << usr.username;
+                LOG(DEBUG) << NAMEOF(backend_register_handler::handle_message) << " Registered user " << usr.username << " - queue: " << queue_name;
                 this->_producer->enqueue_message(queue_name, create_message(msg->sender.client_id, _config.server_id, usr.admin, usr.id));
             }
         } else {
-            LOG(ERROR) << "Couldn't cast message to register_message";
+            LOG(ERROR) << NAMEOF(backend_register_handler::handle_message) << " Couldn't cast message to register_message - queue: " << queue_name;
             this->_producer->enqueue_message(queue_name, create_error_message(msg->sender.client_id, _config.server_id, -1, "Something went wrong"));
         }
     } catch (std::runtime_error const &e) {
-        LOG(ERROR) << "error: " << typeid(e).name() << "-" << e.what();
+        LOG(ERROR) << NAMEOF(backend_register_handler::handle_message) << " error: " << typeid(e).name() << "-" << e.what() << " - queue: " << queue_name;
         this->_producer->enqueue_message(queue_name, create_error_message(msg->sender.client_id, _config.server_id, -1, "Something went wrong"));
     }
 }

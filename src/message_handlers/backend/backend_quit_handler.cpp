@@ -16,6 +16,8 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <macros.h>
+#include <easylogging++.h>
 #include "backend_quit_handler.h"
 
 using namespace roa;
@@ -25,6 +27,7 @@ backend_quit_handler::backend_quit_handler(std::atomic<bool> *quit) : _quit(quit
 }
 
 void backend_quit_handler::handle_message(std::unique_ptr<binary_message const> const &msg) {
+    LOG(DEBUG) << NAMEOF(backend_quit_handler::handle_message) << " Received quit";
     *this->_quit = true;
 }
 
