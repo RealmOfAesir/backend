@@ -225,7 +225,9 @@ unique_ptr<thread> create_consumer_thread(Config config, shared_ptr<ikafka_consu
                     backend_server_msg_dispatcher.trigger_handler(msg);
                 }
             } catch (serialization_exception &e) {
-                LOG(INFO) << NAMEOF(create_consumer_thread) << " received exception " << e.what();
+                LOG(ERROR) << NAMEOF(create_consumer_thread) << " received serialization exception " << e.what();
+            } catch(exception &e) {
+                LOG(ERROR) << NAMEOF(create_consumer_thread) << " received exception " << e.what();
             }
         }
 
