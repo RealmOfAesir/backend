@@ -73,7 +73,7 @@ namespace roa {
 
     class users_repository : public repository, public iusers_repository {
     public:
-        explicit users_repository(idatabase_pool& database_pool);
+        explicit users_repository(std::shared_ptr<idatabase_pool> database_pool);
         users_repository(users_repository &repo);
         users_repository(users_repository &&repo);
         ~users_repository();

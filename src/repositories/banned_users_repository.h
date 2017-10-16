@@ -74,7 +74,7 @@ namespace roa {
 
     class banned_users_repository : public repository, public ibanned_users_repository {
     public:
-        explicit banned_users_repository(idatabase_pool& database_pool);
+        explicit banned_users_repository(std::shared_ptr<idatabase_pool> database_pool);
         banned_users_repository(banned_users_repository& repo);
         banned_users_repository(banned_users_repository&& repo);
         ~banned_users_repository();

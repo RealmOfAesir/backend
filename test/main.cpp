@@ -68,7 +68,8 @@ void init_stuff() {
 
     config = parse_env_file();
     config.connection_string.size();
-    db_pool.create_connections(config.connection_string, 2);
+    db_pool = make_shared<database_pool>();
+    db_pool->create_connections(config.connection_string, 2);
 }
 
 int main(int argc, char const * const * argv) {

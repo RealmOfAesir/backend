@@ -71,7 +71,7 @@ void backend_login_handler::handle_message(unique_ptr<binary_message const> cons
                     return;
                 }
 
-                LOG(DEBUG) << NAMEOF(backend_login_handler::handle_message) << " Login " << casted_msg->username << " - queue: " << queue_name;
+                LOG(DEBUG) << NAMEOF(backend_login_handler::handle_message) << " Login " << casted_msg->username << " - " << usr->id << " - queue: " << queue_name;
                 this->_producer->enqueue_message(queue_name, create_message(msg->sender.client_id, _config.server_id, usr->admin, usr->id));
             }
         } else {

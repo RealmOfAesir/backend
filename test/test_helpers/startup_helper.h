@@ -23,5 +23,5 @@
 
 namespace roa {
     extern Config config;
-    extern database_pool db_pool;
+    extern std::shared_ptr<database_pool> db_pool;
 }

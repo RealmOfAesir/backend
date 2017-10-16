@@ -51,7 +51,7 @@ namespace roa {
 
     class settings_repository : public repository, public isettings_repository {
     public:
-        explicit settings_repository(idatabase_pool& database_pool);
+        explicit settings_repository(std::shared_ptr<idatabase_pool> database_pool);
         settings_repository(settings_repository &repo);
         settings_repository(settings_repository &&repo);
         ~settings_repository();

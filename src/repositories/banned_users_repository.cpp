@@ -32,7 +32,7 @@ using namespace experimental;
 using namespace roa;
 using namespace pqxx;
 
-banned_users_repository::banned_users_repository(idatabase_pool &database_pool) : repository(database_pool) {
+banned_users_repository::banned_users_repository(std::shared_ptr<idatabase_pool> database_pool) : repository(database_pool) {
 
 }
 

@@ -185,7 +185,7 @@ bool check_entropy() {
 #endif
 
 unique_ptr<thread> create_consumer_thread(Config config, shared_ptr<ikafka_consumer<false>> consumer, shared_ptr<ikafka_producer<false>> producer) {
-    if (!consumer) {
+    if (!consumer || !producer) {
         LOG(ERROR) << NAMEOF(create_consumer_thread) << " one of the arguments are null";
         throw runtime_error("[main:consumer] one of the arguments are null");
     }
@@ -193,8 +193,8 @@ unique_ptr<thread> create_consumer_thread(Config config, shared_ptr<ikafka_consu
     return make_unique<thread>([=] {
         LOG(INFO) << NAMEOF(create_consumer_thread) << " starting consumer thread";
 
-        database_pool db_pool;
-        db_pool.create_connections(config.connection_string, 2);
+        auto db_pool = make_shared<database_pool>();
+        db_pool->create_connections(config.connection_string, 2);
         auto backend_injector = boost::di::make_injector(
                 boost::di::bind<idatabase_transaction>.to<database_transaction>(),
                 boost::di::bind<idatabase_connection>.to<database_connection>(),
@@ -220,7 +220,7 @@ unique_ptr<thread> create_consumer_thread(Config config, shared_ptr<ikafka_consu
 
         while (!quit) {
             try {
-                auto msg = consumer->try_get_message(10);
+                auto msg = consumer->try_get_message(50);
                 if (get<1>(msg)) {
                     backend_server_msg_dispatcher.trigger_handler(msg);
                 }
@@ -282,8 +282,10 @@ int main() {
         producer->close();
         consumer_thread->join();
 
-    } catch (const runtime_error& e) {
-        LOG(ERROR) << "[main] error: " << typeid(e).name() << "-" << e.what();
+    } catch (serialization_exception &e) {
+        LOG(ERROR) << NAMEOF(main) << " received serialization exception " << e.what();
+    } catch (exception &e) {
+        LOG(ERROR) << NAMEOF(main) << " received exception " << e.what();
     }
 
     LOG(INFO) << "[main] closed";

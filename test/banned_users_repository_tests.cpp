@@ -28,15 +28,15 @@
 using namespace std;
 using namespace roa;
 
-auto backend_injector = boost::di::make_injector(
-        boost::di::bind<idatabase_transaction>.to<database_transaction>(),
-        boost::di::bind<idatabase_connection>.to<database_connection>(),
-        boost::di::bind<idatabase_pool>.to(db_pool),
-        boost::di::bind<irepository>.to<repository>(),
-        boost::di::bind<iusers_repository>.to<users_repository>(),
-        boost::di::bind<ibanned_users_repository>.to<banned_users_repository>());
-
 TEST_CASE("banned repository users tests") {
+    auto backend_injector = boost::di::make_injector(
+            boost::di::bind<idatabase_transaction>.to<database_transaction>(),
+            boost::di::bind<idatabase_connection>.to<database_connection>(),
+            boost::di::bind<idatabase_pool>.to(db_pool),
+            boost::di::bind<irepository>.to<repository>(),
+            boost::di::bind<iusers_repository>.to<users_repository>(),
+            boost::di::bind<ibanned_users_repository>.to<banned_users_repository>());
+
     users_repository user_repo = backend_injector.create<users_repository>();
     banned_users_repository banned_user_repo = backend_injector.create<banned_users_repository>();
     SECTION( "banned user inserted correctly" ) {

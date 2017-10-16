@@ -20,5 +20,5 @@
 
 namespace roa {
     Config config;
-    database_pool db_pool;
+    std::shared_ptr<database_pool> db_pool;
 }

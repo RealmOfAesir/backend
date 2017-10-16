@@ -27,14 +27,14 @@
 using namespace std;
 using namespace roa;
 
-auto backend_injector = boost::di::make_injector(
-        boost::di::bind<idatabase_transaction>.to<database_transaction>(),
-        boost::di::bind<idatabase_connection>.to<database_connection>(),
-        boost::di::bind<idatabase_pool>.to(db_pool),
-        boost::di::bind<irepository>.to<repository>(),
-        boost::di::bind<isettings_repository>.to<settings_repository>());
-
 TEST_CASE("settings repository tests") {
+    auto backend_injector = boost::di::make_injector(
+            boost::di::bind<idatabase_transaction>.to<database_transaction>(),
+            boost::di::bind<idatabase_connection>.to<database_connection>(),
+            boost::di::bind<idatabase_pool>.to(db_pool),
+            boost::di::bind<irepository>.to<repository>(),
+            boost::di::bind<isettings_repository>.to<settings_repository>());
+
     settings_repository settings_repo = backend_injector.create<settings_repository>();
 
     SECTION( "setting inserted correctly" ) {
