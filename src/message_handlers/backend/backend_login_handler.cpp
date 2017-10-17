@@ -22,6 +22,7 @@
 #include <easylogging++.h>
 #include <sodium.h>
 #include <macros.h>
+#include <on_leaving_scope.h>
 
 using namespace std;
 using namespace roa;
@@ -51,6 +52,10 @@ void backend_login_handler::handle_message(unique_ptr<binary_message const> cons
     string queue_name = "server-" + to_string(msg->sender.server_origin_id);
     try {
         if (auto casted_msg = dynamic_cast<binary_login_message const *>(msg.get())) {
+            sodium_mlock(reinterpret_cast<unsigned char *>(&(const_cast<binary_login_message*>(casted_msg)->password)[0]), casted_msg->password.size());
+            auto scope_guard = on_leaving_scope([&] {
+                sodium_munlock(reinterpret_cast<unsigned char *>(&const_cast<binary_login_message*>(casted_msg)->password[0]), casted_msg->password.size());
+            });
             auto transaction = _users_repository.create_transaction();
             auto banned_user = _banned_users_repository.is_username_or_ip_banned(casted_msg->username, casted_msg->ip, get<1>(transaction));
 
